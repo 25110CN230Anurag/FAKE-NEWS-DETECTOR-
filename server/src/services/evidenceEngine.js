@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { searchFactChecks } from './googleFactCheck.js';
-import { searchRelatedNews } from './newsApi.js';
+import { searchRelatedNews, cleanHeadlineText } from './newsApi.js';
 import { analyzeWithGemini } from './geminiAnalyzer.js';
 
 /**
@@ -19,27 +19,41 @@ export async function runVerificationPipeline({
   const startTime = Date.now();
   const id = `tl-${crypto.randomBytes(6).toString('hex')}`;
 
-  const cleanHeadline = (headline || '').trim();
-  const cleanContent = (content || '').trim();
+  const cleanHeadline = cleanHeadlineText(headline || '');
+  const rawContent = (content || '').trim();
   const cleanPublisher = (publisher || '').trim();
   const cleanDate = (publicationDate || '').trim();
   const cleanUrl = (url || '').trim();
 
   // Validate that there is at least something to verify
-  if (!cleanHeadline && !cleanContent) {
+  if (!cleanHeadline && !rawContent) {
     const err = new Error('Headline or text content is required for verification.');
     err.status = 400;
     throw err;
   }
 
-  // Construct primary query for fact-checking databases
-  const primaryQuery = cleanHeadline || cleanContent.slice(0, 180);
+  // Clean prose content (strip parenthetical pronunciations and citations like [1][2])
+  const cleanContent = rawContent
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-  // 1. Parallel Evidence Retrieval: Google Fact Check Tools API + News Coverage (NewsAPI/RSS)
+  // Construct primary query for fact-checking databases
+  let primaryQuery = cleanHeadline;
+  const headlineWords = cleanHeadline.split(/\s+/).filter(Boolean);
+  if (headlineWords.length < 4 && cleanContent) {
+    const firstSentence = cleanContent.split(/[.!?]\s+/)[0] || '';
+    primaryQuery = `${cleanHeadline} ${firstSentence}`.trim().slice(0, 180);
+  } else if (!primaryQuery) {
+    primaryQuery = cleanContent.slice(0, 180);
+  }
+
+  // 1. Parallel Evidence Retrieval: Fact Check Archives + Global News Coverage
   const factCheckApiKey = apiKeys.factCheckKey || apiKeys.geminiKey || null;
   const [factChecksResult, newsResult] = await Promise.allSettled([
     searchFactChecks(primaryQuery, factCheckApiKey),
-    searchRelatedNews(primaryQuery, apiKeys.newsApiKey)
+    searchRelatedNews(primaryQuery, apiKeys.newsApiKey, cleanContent)
   ]);
 
   const factChecks = factChecksResult.status === 'fulfilled'
@@ -50,7 +64,7 @@ export async function runVerificationPipeline({
     ? newsResult.value
     : { configured: false, totalResults: 0, articles: [], error: newsResult.reason?.message };
 
-  // 2. Deep Synthesis via Google Gemini (with rule-based consensus fallback)
+  // 2. Synthesis via Google Gemini or Rule-Based Consensus
   const synthesis = await analyzeWithGemini(
     {
       headline: cleanHeadline,
@@ -64,23 +78,8 @@ export async function runVerificationPipeline({
     apiKeys.geminiKey
   );
 
-  // 3. Strict Safety & Grounding Post-Processing
-  // Enforce the rule: Never classify as true if accredited debunks exist
   let finalVerdict = synthesis.verdict;
   let finalConfidence = synthesis.confidenceScore;
-
-  const hasAuthoritativeDebunk = factChecks.claims?.some(
-    c => c.standardVerdict === 'Likely False'
-  );
-  const hasAuthoritativeConfirmation = factChecks.claims?.some(
-    c => c.standardVerdict === 'Likely True'
-  );
-
-  if (hasAuthoritativeDebunk && finalVerdict === 'Likely True') {
-    finalVerdict = 'Likely False';
-    finalConfidence = 88;
-    synthesis.summaryVerdict = `Correction Applied: Authoritative fact-checking organizations have explicitly debunked this claim. Available evidence contradicts the statement.`;
-  }
 
   // If no external evidence was found whatsoever and synthesis claimed True/False with high confidence, clamp to Unverified
   const totalEvidenceItems = (factChecks.claims?.length || 0) + (relatedNews.articles?.length || 0);

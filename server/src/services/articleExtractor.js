@@ -67,7 +67,7 @@ export async function extractArticle(targetUrl) {
     throw fetchError;
   }
 
-  const html = typeof response.data === 'string' ? response.data : '';
+  let html = typeof response.data === 'string' ? response.data : '';
   if (!html || html.length < 200) {
     const emptyErr = new Error('The target page returned insufficient or empty HTML content. Please paste headline & summary manually.');
     emptyErr.status = 422;
@@ -75,7 +75,7 @@ export async function extractArticle(targetUrl) {
     throw emptyErr;
   }
 
-  // 3. Cheerio metadata extraction (OpenGraph, Twitter Cards, Schema.org, standard HTML)
+  // 3. Cheerio metadata extraction & cleanup
   const $ = cheerio.load(html);
 
   // Metadata: Title
@@ -98,38 +98,50 @@ export async function extractArticle(targetUrl) {
     $('time').first().text().trim();
 
   // Metadata: Description / Teaser
-  const ogDescription =
+  let ogDescription =
     $('meta[property="og:description"]').attr('content') ||
     $('meta[name="twitter:description"]').attr('content') ||
-    $('meta[name="description"]').attr('content');
+    $('meta[name="description"]').attr('content') || '';
 
   // Metadata: Lead Image
   const leadImage =
     $('meta[property="og:image"]').attr('content') ||
     $('meta[name="twitter:image"]').attr('content');
 
-  // 4. Primary Extraction: Mozilla Readability
+  // Clean clutter before Readability: infoboxes, sidebars, navboxes, footers, scripts, styles
+  $('script, style, nav, footer, header, noscript, svg, form, iframe, aside').remove();
+  $('table.infobox, .infobox, .sidebar, .navbox, table.navbox, .metadata').remove();
+
+  // Extract a clean lead paragraph if available
+  const cleanLeadP = $('p')
+    .map((_, el) => $(el).text().trim())
+    .get()
+    .find(p => p.length > 50 && !p.toLowerCase().includes('cookie') && !p.toLowerCase().includes('javascript')) || '';
+
+  if (!ogDescription && cleanLeadP) {
+    ogDescription = cleanLeadP.slice(0, 250);
+  }
+
+  const cleanedHtml = $.html();
+
+  // 4. Primary Extraction: Mozilla Readability on cleaned HTML
   let readabilityArticle = null;
   try {
-    const dom = new JSDOM(html, { url: cleanUrl });
+    const dom = new JSDOM(cleanedHtml, { url: cleanUrl });
     const reader = new Readability(dom.window.document, {
       charThreshold: 60,
       keepClasses: false
     });
     readabilityArticle = reader.parse();
-  } catch (parseErr) {
-    // Graceful fallback to Cheerio if JSDOM / Readability encounters parse exception
+  } catch {
     readabilityArticle = null;
   }
 
-  // 5. Fallback Extraction: Cheerio Semantic Search if Readability is empty
+  // 5. Fallback Extraction: Cheerio Semantic Search
   let extractedText = readabilityArticle?.textContent?.trim() || '';
   let finalTitle = readabilityArticle?.title?.trim() || ogTitle || twitterTitle || h1Title || docTitle || '';
 
   if (!extractedText || extractedText.length < 150) {
-    // Attempt Cheerio fallback on typical article containers
-    $('script, style, nav, footer, header, noscript, svg, form, iframe, aside').remove();
-
     const candidateSelectors = [
       'article',
       '[itemprop="articleBody"]',
@@ -150,13 +162,17 @@ export async function extractArticle(targetUrl) {
     }
 
     if (!fallbackText || fallbackText.length < 100) {
-      // Gather all paragraphs
       fallbackText = $('p').map((_, el) => $(el).text().trim()).get().filter(p => p.length > 30).join('\n\n');
     }
 
     if (fallbackText && fallbackText.length > extractedText.length) {
       extractedText = fallbackText;
     }
+  }
+
+  // If extracted text didn't begin with the clean lead paragraph, prepend it
+  if (cleanLeadP && !extractedText.includes(cleanLeadP.slice(0, 40))) {
+    extractedText = `${cleanLeadP}\n\n${extractedText}`;
   }
 
   // Clean text whitespace
@@ -180,15 +196,11 @@ export async function extractArticle(targetUrl) {
     throw failError;
   }
 
-  // Compute stats
   const words = extractedText.split(/\s+/).filter(Boolean);
   const wordCount = words.length;
   const readTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
-
-  // Determine final publisher name
   const finalPublisher = ogSiteName || metaPublisher || domainName;
 
-  // Format date if valid
   let formattedDate = ogPubDate || '';
   if (formattedDate) {
     const parsedDate = new Date(formattedDate);

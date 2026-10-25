@@ -1,6 +1,14 @@
 import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 const FACTCHECK_ENDPOINT = 'https://factchecktools.googleapis.com/v1alpha1/claims:search';
+
+const FACT_CHECK_OUTLETS = [
+  'snopes', 'politifact', 'factcheck', 'fact-check', 'lead stories', 'check your fact',
+  'boom live', 'full fact', 'health feedback', 'climate feedback', 'vishvas news',
+  'alt news', 'newsguard', 'reuters fact check', 'ap fact check', 'bbc reality check',
+  'usa today fact check', 'washington post fact checker', 'afp fact check'
+];
 
 /**
  * Maps textual ratings from diverse fact-check organizations (Snopes, PolitiFact, Reuters, AFP, etc.)
@@ -31,7 +39,8 @@ export function normalizeRating(textualRating) {
     r.includes('manipulated') ||
     r.includes('wrong') ||
     r.includes('bogus') ||
-    r.includes('inaccurate')
+    r.includes('inaccurate') ||
+    r.includes('untrue')
   ) {
     if (r.includes('mostly false') || r.includes('partly false') || r.includes('barely true')) {
       return { standardVerdict: 'Misleading / Partly True', polarity: -0.6, badgeColor: 'amber' };
@@ -76,7 +85,92 @@ export function normalizeRating(textualRating) {
 }
 
 /**
+ * Fallback to searching accredited fact-check archives via Google News RSS
+ * when official Google Fact Check API key is missing or returns 0 claims.
+ */
+async function fetchFactChecksFromRss(query) {
+  try {
+    const q = `${query} fact check`;
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
+    const res = await axios.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) TruthLens/1.0' },
+      timeout: 6000
+    });
+    const $ = cheerio.load(res.data, { xmlMode: true });
+    const claims = [];
+
+    $('item').each((i, el) => {
+      if (claims.length >= 6) return false;
+      const title = $(el).find('title').text() || '';
+      const link = $(el).find('link').text() || '';
+      const pubDate = $(el).find('pubDate').text() || '';
+      const source = $(el).find('source').text() || '';
+      const descHtml = $(el).find('description').text() || '';
+      const snippet = cheerio.load(descHtml).text().trim();
+
+      const srcLower = source.toLowerCase();
+      const titleLower = title.toLowerCase();
+
+      const isFactChecker = FACT_CHECK_OUTLETS.some(fc => srcLower.includes(fc) || titleLower.includes(fc));
+      if (!isFactChecker) return;
+
+      // Extract rating cue from title and snippet
+      let rating = 'Debunked / False';
+      if (titleLower.includes('true') && !titleLower.includes('not true') && !titleLower.includes('false')) {
+        rating = 'Verified True';
+      } else if (titleLower.includes('partly') || titleLower.includes('misleading') || titleLower.includes('context')) {
+        rating = 'Misleading / Partly True';
+      }
+
+      const ratingInfo = normalizeRating(rating);
+
+      claims.push({
+        id: `fc-rss-${claims.length + 1}`,
+        claimText: query,
+        claimant: 'Viral social media report',
+        claimDate: pubDate ? new Date(pubDate).toISOString().split('T')[0] : null,
+        publisher: source || 'Accredited Fact-Checker',
+        publisherSite: link,
+        reviewTitle: title,
+        reviewUrl: link,
+        reviewDate: pubDate ? new Date(pubDate).toISOString().split('T')[0] : null,
+        textualRating: rating,
+        standardVerdict: ratingInfo.standardVerdict,
+        polarity: ratingInfo.polarity,
+        badgeColor: ratingInfo.badgeColor
+      });
+    });
+
+    return {
+      available: true,
+      searched: true,
+      query,
+      provider: 'Fact-Check RSS Archives (Free Grounding)',
+      totalClaims: claims.length,
+      claims,
+      consensusStats: {
+        falseCount: claims.filter(c => c.standardVerdict === 'Likely False').length,
+        trueCount: claims.filter(c => c.standardVerdict === 'Likely True').length,
+        misleadingCount: claims.filter(c => c.standardVerdict === 'Misleading / Partly True').length,
+        hasAuthoritativeDebunk: claims.some(c => c.standardVerdict === 'Likely False'),
+        hasAuthoritativeConfirmation: claims.some(c => c.standardVerdict === 'Likely True')
+      }
+    };
+  } catch (err) {
+    return {
+      available: false,
+      searched: true,
+      query,
+      totalClaims: 0,
+      claims: [],
+      error: err.message
+    };
+  }
+}
+
+/**
  * Searches the Google Fact Check Tools API for previously vetted claims.
+ * Seamlessly falls back to accredited RSS fact-checking archives if no key is configured or returns 0.
  * @param {string} query - The search query, headline, or claim
  * @param {string} [overrideKey] - Optional client-provided API key
  * @returns {Promise<Object>} Formatted fact check matches and summary statistics
@@ -94,22 +188,17 @@ export async function searchFactChecks(query, overrideKey = null) {
     };
   }
 
-  if (!apiKey) {
-    return {
-      available: false,
-      searched: false,
-      totalClaims: 0,
-      claims: [],
-      warning: 'Google Fact Check API key is not configured. Falling back to multi-source cross-referencing.'
-    };
-  }
-
-  // Clean and prepare query (truncate excessively long text to first 250 characters of key phrases)
+  // Clean and prepare query (truncate excessively long text to first 200 characters)
   const cleanQuery = query
     .replace(/[^\w\s-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 200);
+
+  // If no official API key configured, use free accredited RSS fact-check search
+  if (!apiKey) {
+    return await fetchFactChecksFromRss(cleanQuery);
+  }
 
   try {
     const response = await axios.get(FACTCHECK_ENDPOINT, {
@@ -123,6 +212,14 @@ export async function searchFactChecks(query, overrideKey = null) {
     });
 
     const rawClaims = response.data?.claims || [];
+
+    // If official API returns 0 claims, try free RSS fact check fallback
+    if (rawClaims.length === 0) {
+      const rssFallback = await fetchFactChecksFromRss(cleanQuery);
+      if (rssFallback.totalClaims > 0) {
+        return rssFallback;
+      }
+    }
 
     const structuredClaims = rawClaims.map((item, index) => {
       const review = (item.claimReview && item.claimReview[0]) || {};
@@ -145,7 +242,6 @@ export async function searchFactChecks(query, overrideKey = null) {
       };
     });
 
-    // Compute consensus score from reviews
     let falseCount = 0;
     let trueCount = 0;
     let misleadingCount = 0;
@@ -160,6 +256,7 @@ export async function searchFactChecks(query, overrideKey = null) {
       available: true,
       searched: true,
       query: cleanQuery,
+      provider: 'Google Fact Check Tools API',
       totalClaims: structuredClaims.length,
       claims: structuredClaims,
       consensusStats: {
@@ -171,15 +268,10 @@ export async function searchFactChecks(query, overrideKey = null) {
       }
     };
   } catch (err) {
-    const status = err.response?.status;
-    let errorMsg = `Fact Check API error: ${err.message}`;
-
-    if (status === 400) {
-      errorMsg = 'Bad request to Google Fact Check API. Please check query formatting.';
-    } else if (status === 403) {
-      errorMsg = 'Invalid or unauthorized Google Fact Check API key, or Fact Check API is not enabled in Google Cloud Console.';
-    } else if (status === 429) {
-      errorMsg = 'Fact Check API rate limit exceeded.';
+    // If official API encounters an error (rate limit, invalid key), fallback to RSS search
+    const rssFallback = await fetchFactChecksFromRss(cleanQuery);
+    if (rssFallback.totalClaims > 0) {
+      return rssFallback;
     }
 
     return {
@@ -188,7 +280,7 @@ export async function searchFactChecks(query, overrideKey = null) {
       query: cleanQuery,
       totalClaims: 0,
       claims: [],
-      error: errorMsg
+      error: `Fact Check API error: ${err.message}`
     };
   }
 }

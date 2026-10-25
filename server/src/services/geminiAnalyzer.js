@@ -8,18 +8,114 @@ const GEMINI_MODELS = [
 ];
 
 /**
+ * Known premier wire services and authoritative institutions.
+ * Sourced reporting from these entities carries primary confirmation weight.
+ */
+const PREMIER_SOURCES = [
+  'reuters', 'associated press', 'ap news', 'ap', 'afp', 'bloomberg', 'upi',
+  'bbc', 'npr', 'pbs', 'abc news', 'cbs news', 'nbc news', 'cnn', 'sky news', 'dw',
+  'france 24', 'al jazeera', 'c-span', 'the guardian', 'nytimes', 'new york times',
+  'wsj', 'wall street journal', 'washington post', 'financial times', 'forbes', 'time',
+  'the economist', 'politico', 'axios', 'the hindu', 'indian express', 'times of india',
+  'hindustan times', 'livemint', 'business standard', 'gov', '.gov', 'nasa', 'who',
+  'cdc', 'nih', 'isro', 'esa', 'un', 'unesco', 'nature', 'science', 'scientific american',
+  'space.com', 'science daily', 'phys.org', 'live science', 'wired', 'arstechnica',
+  'national geographic', 'smithsonian', 'mit technology review', 'nobelprize.org'
+];
+
+/**
+ * Accredited fact-checking publishers.
+ */
+const FACT_CHECK_OUTLETS = [
+  'snopes', 'politifact', 'factcheck', 'fact-check', 'lead stories', 'check your fact',
+  'boom live', 'full fact', 'health feedback', 'climate feedback', 'vishvas news',
+  'alt news', 'newsguard', 'reuters fact check', 'ap fact check', 'bbc reality check',
+  'usa today fact check', 'washington post fact checker', 'afp fact check'
+];
+
+/**
+ * High-precision debunk phrases that signify investigative or fact-check debunking.
+ */
+const DEBUNK_PHRASES = [
+  'fact check', 'factcheck', 'fact-check', 'false claim', 'falsely claim', 'falsely claimed',
+  'falsely reported', 'debunked', 'debunks', 'debunking', 'viral hoax', 'hoax',
+  'viral myth', 'myth', 'no evidence', 'no proof', 'fabricated', 'manipulated image',
+  'manipulated video', 'deepfake', 'scam', 'phishing', 'bogus', 'untrue', 'not true',
+  'discredited', 'contrary to claims', 'pants on fire', 'fake news', 'no, nasa did not',
+  'no, who did not', 'no, government did not', 'not predicting', 'does not cure',
+  'is not true', 'baseless theory', 'baseless claim', 'misleading claim', 'refutes',
+  'refuted', 'refuting', 'denies', 'denied', 'fake cure', 'miracle cure', 'toxic',
+  'conspiracy theorist', 'conspiracy theorists', 'conspiracy theory', 'indicted for selling',
+  'arrested for selling', 'extradited', 'warning against', 'warns against'
+];
+
+/**
+ * Words that indicate an ancillary asset debunk (e.g. photos/videos) rather than the event itself.
+ */
+const ASSET_WORDS = [
+  'image', 'images', 'video', 'videos', 'photo', 'photos', 'picture', 'pictures',
+  'clip', 'clips', 'visuals', 'audio', 'deepfake', 'cgi', 'poster', 'footage', 'simulation'
+];
+
+/**
+ * Checks whether a fact check is debunking the core claim or just a viral graphic/CGI clip.
+ */
+function isDirectClaimDebunk(reviewTitle = '', inputHeadline = '') {
+  const rtLower = reviewTitle.toLowerCase();
+  const ihLower = inputHeadline.toLowerCase();
+
+  const isDebunkingAsset = ASSET_WORDS.some(w => rtLower.includes(w));
+  const inputMentionsAsset = ASSET_WORDS.some(w => ihLower.includes(w));
+
+  if (isDebunkingAsset && !inputMentionsAsset) {
+    return false;
+  }
+
+  const stopwords = new Set([
+    'a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 'is', 'are',
+    'was', 'were', 'will', 'this', 'that', 'from', 'with', 'about', 'fact', 'check', 'review'
+  ]);
+  const inputTerms = ihLower
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !stopwords.has(w));
+
+  const matchedTerms = inputTerms.filter(t => rtLower.includes(t));
+  return matchedTerms.length >= 1;
+}
+
+/**
+ * Checks if a news article is actually relevant to the claim being evaluated.
+ * Prevents completely unrelated news from counting as corroborating evidence.
+ */
+function isArticleRelevantToClaim(title = '', description = '', headline = '') {
+  const combined = `${title} ${description}`.toLowerCase();
+  const hLower = headline.toLowerCase().replace(/[^\w\s]/g, ' ');
+  const stopwords = new Set([
+    'a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 'is', 'are',
+    'was', 'were', 'will', 'this', 'that', 'from', 'with', 'about', 'says', 'said'
+  ]);
+  const terms = hLower.split(/\s+/).filter(w => w.length > 3 && !stopwords.has(w));
+
+  if (terms.length <= 2) {
+    return terms.some(t => combined.includes(t));
+  }
+
+  const matchCount = terms.filter(t => combined.includes(t)).length;
+  return matchCount >= 2;
+}
+
+/**
  * Parses JSON even if wrapped in markdown backticks or containing formatting quirks.
  */
 function extractJsonFromText(rawText) {
   if (!rawText) return null;
   let cleaned = rawText.trim();
 
-  // Strip ```json ... ``` code blocks
   if (cleaned.startsWith('```')) {
     cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
   }
 
-  // Find outermost JSON object braces
   const firstBrace = cleaned.indexOf('{');
   const lastBrace = cleaned.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -28,8 +124,7 @@ function extractJsonFromText(rawText) {
 
   try {
     return JSON.parse(cleaned);
-  } catch (err) {
-    // Attempt lenient trailing comma cleanup
+  } catch {
     try {
       const relaxed = cleaned.replace(/,\s*([\]}])/g, '$1');
       return JSON.parse(relaxed);
@@ -37,6 +132,30 @@ function extractJsonFromText(rawText) {
       return null;
     }
   }
+}
+
+/**
+ * Evaluates whether an article is actively debunking or warning against a claim.
+ */
+function evaluateArticleDebunk(title = '', description = '', sourceName = '') {
+  const combined = `${title} ${description}`.toLowerCase();
+  const src = sourceName.toLowerCase();
+
+  const isFactChecker = FACT_CHECK_OUTLETS.some(fc => src.includes(fc) || combined.includes(fc));
+  if (isFactChecker) {
+    return { isDebunk: true, isFactChecker: true };
+  }
+
+  const hasDebunkPhrase = DEBUNK_PHRASES.some(phrase => combined.includes(phrase));
+  if (hasDebunkPhrase) {
+    return { isDebunk: true, isFactChecker: false };
+  }
+
+  if (combined.startsWith('did ') && combined.includes('?') && src.includes('fact')) {
+    return { isDebunk: true, isFactChecker: false };
+  }
+
+  return { isDebunk: false, isFactChecker: false };
 }
 
 /**
@@ -54,29 +173,36 @@ export function synthesizeRuleBasedVerdict({ headline, content, publisher, factC
 
   const supporting = [];
   const contradicting = [];
+  const flags = [];
 
   // 1. Analyze authoritative fact-check records
   for (const item of claims) {
+    const isDirect = isDirectClaimDebunk(item.reviewTitle || '', headline || '');
+
     if (item.standardVerdict === 'Likely False') {
-      falseVotes += 2;
-      contradicting.push({
-        source: item.publisher || 'Accredited Fact-Checker',
-        title: item.reviewTitle,
-        url: item.reviewUrl,
-        date: item.reviewDate || item.claimDate,
-        quoteOrFinding: `Rated "${item.textualRating}" by ${item.publisher}: ${item.claimText}`
-      });
+      if (isDirect) {
+        falseVotes += 3;
+        contradicting.push({
+          source: item.publisher || 'Accredited Fact-Checker',
+          title: item.reviewTitle,
+          url: item.reviewUrl,
+          date: item.reviewDate || item.claimDate,
+          quoteOrFinding: `Accredited rating "${item.textualRating}" by ${item.publisher}: Directly refuting this statement.`
+        });
+      } else {
+        flags.push(`Fact-checker ${item.publisher} previously debunked altered imagery or viral clips associated with this topic.`);
+      }
     } else if (item.standardVerdict === 'Likely True') {
-      trueVotes += 2;
+      trueVotes += 3;
       supporting.push({
         source: item.publisher || 'Accredited Fact-Checker',
         title: item.reviewTitle,
         url: item.reviewUrl,
         date: item.reviewDate || item.claimDate,
-        quoteOrFinding: `Confirmed "${item.textualRating}" by ${item.publisher}: ${item.claimText}`
+        quoteOrFinding: `Confirmed "${item.textualRating}" by ${item.publisher}: Verified through primary documentation.`
       });
     } else if (item.standardVerdict === 'Misleading / Partly True') {
-      misleadingVotes += 1.5;
+      misleadingVotes += 2;
       contradicting.push({
         source: item.publisher || 'Accredited Fact-Checker',
         title: item.reviewTitle,
@@ -88,53 +214,52 @@ export function synthesizeRuleBasedVerdict({ headline, content, publisher, factC
   }
 
   // 2. Analyze corroborating vs debunking news coverage
-  const DEBUNK_KEYWORDS = [
-    'fake', 'myth', 'myths', 'debunk', 'debunks', 'debunked', 'hoax', 'warning', 'warns',
-    'warned', 'falsely', 'false', 'disinformation', 'misinformation', 'conspiracy', 'danger',
-    'dangerous', 'outcry', 'not true', 'untrue', 'no evidence', 'refutes', 'refuted',
-    'denies', 'denied', 'scam', 'bogus', "don't", 'does not', 'cannot', "isn't", 'unproven',
-    'fabricated', 'fact check', 'fact-check', 'lies', 'misleading', 'fictitious'
-  ];
-
-  const trustedOutlets = [
-    'reuters', 'associated press', 'ap news', 'afp', 'upi', 'bloomberg',
-    'bbc', 'npr', 'pbs', 'abc', 'cbs', 'nbc', 'cnn', 'sky news', 'al jazeera', 'france 24', 'c-span', 'dw',
-    'gov', '.gov', 'nasa', 'who', 'nih', 'cdc', 'britannica', 'nature', 'scientific american', 'space.com', 'science daily',
-    'the hindu', 'indian express', 'times of india', 'hindustan times', 'guardian', 'nytimes', 'wsj', 'washington post',
-    'financial times', 'politico', 'axios', 'the hill', 'forbes', 'time'
-  ];
-
   for (const art of news) {
-    const titleAndDesc = `${art.title || ''} ${art.description || ''}`.toLowerCase();
-    const src = (art.source?.name || '').toLowerCase();
-    const isMajorOutlet = trustedOutlets.some(t => src.includes(t));
+    const srcName = art.source?.name || 'News Outlet';
+    const srcLower = srcName.toLowerCase();
 
-    // Check if the news article is actually warning/debunking the claim
-    const hasDebunkCue = DEBUNK_KEYWORDS.some(cue => {
-      const regex = new RegExp(`\\b${cue}\\b`, 'i');
-      return regex.test(titleAndDesc);
-    });
+    // Skip uncurated social media platforms
+    if (
+      srcLower.includes('facebook') ||
+      srcLower.includes('twitter') ||
+      srcLower.includes('tiktok') ||
+      srcLower.includes('reddit')
+    ) {
+      continue;
+    }
 
-    if (hasDebunkCue) {
-      // News outlet is actively debunking or warning against this claim!
-      falseVotes += isMajorOutlet ? 2 : 1;
-      contradicting.push({
-        source: art.source?.name || 'Journalistic Investigation',
-        title: art.title,
-        url: art.url,
-        date: art.publishedAt ? art.publishedAt.split('T')[0] : null,
-        quoteOrFinding: art.description || `Investigative report flagging this claim as a myth, debunked rumor, or safety hazard.`
-      });
-    } else if (isMajorOutlet && falseVotes === 0) {
-      // Neutral / corroborating reporting from an established wire service
-      trueVotes += 1;
-      supporting.push({
-        source: art.source?.name || 'Major News Outlet',
-        title: art.title,
-        url: art.url,
-        date: art.publishedAt ? art.publishedAt.split('T')[0] : null,
-        quoteOrFinding: art.description || 'Reported on this event through primary journalistic coverage.'
-      });
+    const { isDebunk, isFactChecker } = evaluateArticleDebunk(art.title, art.description, srcName);
+    const isPremier = PREMIER_SOURCES.some(p => srcLower.includes(p));
+
+    if (isDebunk) {
+      const isDirect = isDirectClaimDebunk(art.title, headline || '');
+      if (isDirect) {
+        const weight = isFactChecker ? 3 : isPremier ? 2 : 1.5;
+        falseVotes += weight;
+        contradicting.push({
+          source: srcName,
+          title: art.title,
+          url: art.url,
+          date: art.publishedAt ? art.publishedAt.split('T')[0] : null,
+          quoteOrFinding: art.description || `Investigative reporting debunking or warning against this claim.`
+        });
+      } else {
+        flags.push(`Secondary visual or media debunk noted by ${srcName}.`);
+      }
+    } else {
+      // Must be relevant to the claim to be considered supporting!
+      const isRelevant = isArticleRelevantToClaim(art.title, art.description, headline || '');
+      if (isRelevant) {
+        const weight = isPremier ? 2 : 1;
+        trueVotes += weight;
+        supporting.push({
+          source: srcName,
+          title: art.title,
+          url: art.url,
+          date: art.publishedAt ? art.publishedAt.split('T')[0] : null,
+          quoteOrFinding: art.description || 'Reported on this event through primary journalistic coverage.'
+        });
+      }
     }
   }
 
@@ -143,26 +268,26 @@ export function synthesizeRuleBasedVerdict({ headline, content, publisher, factC
   let confidenceScore = 50;
   let summaryVerdict = '';
 
-  if (falseVotes >= 2 && trueVotes === 0) {
-    verdict = 'Likely False';
-    confidenceScore = Math.min(95, 75 + falseVotes * 5);
-    summaryVerdict = `Authoritative fact-checking databases and investigative reports directly debunk this claim as false, hazardous, or fabricated. No verified evidence supports it.`;
+  if (trueVotes >= 4 && trueVotes >= falseVotes * 1.5) {
+    verdict = 'Likely True';
+    confidenceScore = Math.min(94, 75 + Math.round(trueVotes * 2.2));
+    summaryVerdict = `Multiple credible reporting outlets and accredited wire services confirm the core facts of this story with primary sourcing and on-the-record documentation.`;
   } else if (falseVotes >= 2 && falseVotes > trueVotes) {
     verdict = 'Likely False';
-    confidenceScore = Math.min(92, 70 + (falseVotes - trueVotes) * 5);
-    summaryVerdict = `Journalistic investigations and fact-checking organizations have flagged this claim as inaccurate, a debunked rumor, or a dangerous myth.`;
+    confidenceScore = Math.min(95, 78 + Math.round(falseVotes * 3));
+    summaryVerdict = `Authoritative fact-checking databases and investigative journalistic reports directly debunk this claim as false, fabricated, or an unfounded rumor. No credible evidence supports it.`;
   } else if (trueVotes >= 2 && falseVotes === 0 && misleadingVotes === 0) {
     verdict = 'Likely True';
-    confidenceScore = Math.min(92, 70 + trueVotes * 6);
-    summaryVerdict = `Multiple credible reporting outlets and accredited verifiers confirm the core facts of this story with primary sourcing and on-the-record documentation.`;
-  } else if (misleadingVotes > 0 || (falseVotes > 0 && trueVotes > 0)) {
-    verdict = falseVotes > 0 && trueVotes > 0 ? 'Conflicting Evidence' : 'Misleading / Partly True';
+    confidenceScore = Math.min(92, 70 + Math.round(trueVotes * 3));
+    summaryVerdict = `Credible journalistic reporting corroborates this event with consistent details and published documentation across multiple newsrooms.`;
+  } else if (misleadingVotes >= 2 || (falseVotes >= 2 && trueVotes >= 2)) {
+    verdict = falseVotes >= 2 && trueVotes >= 2 ? 'Conflicting Evidence' : 'Misleading / Partly True';
     confidenceScore = 70;
     summaryVerdict = `The story contains elements of truth or references a real event, but presents details out of context, exaggerates figures, or is contradicted by competing journalistic reports.`;
   } else if (claims.length === 0 && news.length === 0) {
     verdict = 'Unverified';
     confidenceScore = 40;
-    summaryVerdict = `No matching fact-checks or corroborating reports from verified news agencies were found. Due to lack of independent evidence, this claim cannot be verified as true or false.`;
+    summaryVerdict = `No matching fact-checks or corroborating reports from verified news agencies were found. Given the absence of verifiable proof, this story cannot be confirmed or refuted.`;
   } else {
     verdict = 'Unverified';
     confidenceScore = 45;
@@ -177,16 +302,19 @@ export function synthesizeRuleBasedVerdict({ headline, content, publisher, factC
       headline || 'Input statement or claim',
       ...(content ? [content.slice(0, 160) + '...'] : [])
     ],
-    supportingEvidence: supporting.slice(0, 5),
-    contradictingEvidence: contradicting.slice(0, 5),
+    supportingEvidence: supporting.slice(0, 6),
+    contradictingEvidence: contradicting.slice(0, 6),
     sourceComparison: {
-      consensusDescription: `Evaluated ${claims.length} existing fact-check database records and ${news.length} related news articles.`,
-      wireServicesAgreement: trueVotes > 1 ? 'High' : falseVotes > 1 ? 'Debunked by accredited verifiers' : 'Insufficient Evidence'
+      consensusDescription: `Evaluated ${claims.length} fact-check database records and ${news.length} related news articles.`,
+      wireServicesAgreement: trueVotes > 3 ? 'High' : falseVotes > 2 ? 'Debunked by accredited verifiers' : 'Moderate'
     },
     credibilitySignals: {
       hasAuthoritativeFactCheck: claims.length > 0,
       emotionalToneFlag: false,
-      flags: claims.length === 0 && news.length === 0 ? ['No external journalistic corroboration located'] : []
+      flags: [
+        ...flags.slice(0, 2),
+        ...(claims.length === 0 && news.length === 0 ? ['No external journalistic corroboration located'] : [])
+      ]
     },
     limitations: [
       'Analysis is grounded in currently accessible fact-checking archives and indexed news reporting.',
@@ -203,11 +331,9 @@ export async function analyzeWithGemini({ headline, content, publisher, date, ur
   const apiKey = overrideKey || process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    // Seamlessly fallback to structured rule-based consensus
     return synthesizeRuleBasedVerdict({ headline, content, publisher, factChecks, relatedNews });
   }
 
-  // Prepare evidence payload for Gemini
   const factCheckContext = (factChecks?.claims || []).map(c => ({
     claim: c.claimText,
     claimant: c.claimant,
@@ -218,7 +344,7 @@ export async function analyzeWithGemini({ headline, content, publisher, date, ur
     date: c.reviewDate
   }));
 
-  const newsContext = (relatedNews?.articles || []).slice(0, 6).map(n => ({
+  const newsContext = (relatedNews?.articles || []).slice(0, 8).map(n => ({
     title: n.title,
     source: n.source?.name,
     description: n.description,
@@ -286,7 +412,6 @@ ${JSON.stringify(newsContext, null, 2)}
 
 Perform rigorous fact-checking and return the required JSON.`;
 
-  // Attempt Gemini API call
   for (const model of GEMINI_MODELS) {
     try {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -316,7 +441,6 @@ Perform rigorous fact-checking and return the required JSON.`;
       const parsed = extractJsonFromText(candidateText);
 
       if (parsed && parsed.verdict) {
-        // Validate verdict enum
         const validVerdicts = [
           'Likely True',
           'Likely False',
@@ -334,11 +458,9 @@ Perform rigorous fact-checking and return the required JSON.`;
         };
       }
     } catch (err) {
-      // Continue to next model or rule fallback
       console.warn(`Gemini call failed on ${model}:`, err.response?.data?.error?.message || err.message);
     }
   }
 
-  // If Gemini fails or times out, safely fallback
   return synthesizeRuleBasedVerdict({ headline, content, publisher, factChecks, relatedNews });
 }

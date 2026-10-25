@@ -5,11 +5,34 @@ const NEWS_API_ENDPOINT = 'https://newsapi.org/v2/everything';
 const NEWS_API_TOP_ENDPOINT = 'https://newsapi.org/v2/top-headlines';
 
 /**
- * Extracts 2 to 5 meaningful search keywords from headline or claim text,
- * stripping common stopwords and punctuation.
+ * Strips editorial prefixes and trailing publisher markers from headline strings.
+ * e.g., "Breaking News: NASA confirms mission - CNN" -> "NASA confirms mission"
  */
-export function extractKeywords(text) {
+export function cleanHeadlineText(text) {
   if (!text) return '';
+  let cleaned = text.trim();
+
+  // Strip leading prefixes: "Breaking:", "Exclusive:", "LIVE:", etc.
+  cleaned = cleaned.replace(
+    /^(?:breaking(?:\s+news)?|exclusive|fact\s*check|live(?:\s+updates)?|special\s+report|watch|opinion|analysis|explained):\s*/i,
+    ''
+  );
+
+  // Strip trailing publisher suffixes: " - BBC News", " | CNN", " : Reuters"
+  cleaned = cleaned.replace(/\s+(?:-|\||–|—|:)\s+[^-\|:–—]+$/, '');
+
+  return cleaned.trim();
+}
+
+/**
+ * Builds an optimal search query from headline and content:
+ * - If headline is 4-14 words, uses the cleaned headline directly.
+ * - If headline is very short (<4 words), combines with the first sentence of content.
+ * - Strips common stopwords while retaining key nouns, entities, and claim predicates.
+ */
+export function extractKeywords(text, content = '') {
+  if (!text && !content) return '';
+
   const stopwords = new Set([
     'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'he',
     'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the', 'to', 'was', 'were', 'will',
@@ -18,15 +41,30 @@ export function extractKeywords(text) {
     'do', 'did', 'does', 'have', 'had', 'been', 'can', 'could', 'should', 'would', 'may', 'might'
   ]);
 
-  const words = text
+  const cleanHead = cleanHeadlineText(text);
+  const headWords = cleanHead.split(/\s+/).filter(Boolean);
+
+  // If headline is a solid phrase (4 to 14 words), the cleaned headline itself is the best search query
+  if (headWords.length >= 4 && headWords.length <= 14) {
+    return cleanHead;
+  }
+
+  // If headline is very short (< 4 words), extract the first sentence of content
+  let combined = cleanHead;
+  if (headWords.length < 4 && content) {
+    const firstSentence = content.split(/[.!?]\s+/)[0] || '';
+    combined = `${cleanHead} ${firstSentence}`;
+  }
+
+  // Extract up to 8 informative unique words
+  const words = combined
     .toLowerCase()
-    .replace(/[^\w\s]/g, '')
+    .replace(/[^\w\s]/g, ' ')
     .split(/\s+/)
     .filter(w => w.length > 2 && !stopwords.has(w));
 
-  // Take top 4-5 unique keywords
   const unique = Array.from(new Set(words));
-  return unique.slice(0, 5).join(' ');
+  return unique.slice(0, 8).join(' ');
 }
 
 /**
@@ -88,9 +126,9 @@ async function fetchGoogleNewsRss(query) {
  * Searches for related coverage across global news outlets.
  * Uses NewsAPI when key is available; seamlessly falls back to RSS search.
  */
-export async function searchRelatedNews(query, overrideKey = null) {
+export async function searchRelatedNews(query, overrideKey = null, contentContext = '') {
   const apiKey = overrideKey || process.env.NEWS_API_KEY;
-  const cleanKeywords = extractKeywords(query) || query.slice(0, 80);
+  const cleanKeywords = extractKeywords(query, contentContext) || query.slice(0, 100);
 
   if (!cleanKeywords) {
     return {
@@ -116,28 +154,38 @@ export async function searchRelatedNews(query, overrideKey = null) {
       });
 
       const articles = response.data?.articles || [];
-      return {
-        configured: true,
-        provider: 'NewsAPI',
-        searched: true,
-        totalResults: response.data?.totalResults || articles.length,
-        articles: articles.map(art => ({
-          title: art.title || 'Untitled',
-          description: art.description || '',
-          url: art.url || '#',
-          source: art.source || { name: 'Unknown' },
-          publishedAt: art.publishedAt || '',
-          urlToImage: art.urlToImage || null
-        }))
-      };
-    } catch (err) {
-      // NewsAPI failed (e.g. rate limit 429 or invalid key 401)
-      // Fallback to RSS search instead of failing!
+      if (articles.length > 0) {
+        return {
+          configured: true,
+          provider: 'NewsAPI',
+          searched: true,
+          totalResults: response.data?.totalResults || articles.length,
+          articles: articles.map(art => ({
+            title: art.title || 'Untitled',
+            description: art.description || '',
+            url: art.url || '#',
+            source: art.source || { name: 'Unknown' },
+            publishedAt: art.publishedAt || '',
+            urlToImage: art.urlToImage || null
+          }))
+        };
+      }
+    } catch {
+      // NewsAPI failed or returned 0 -> fallback to RSS search
     }
   }
 
-  // 2. Free RSS Fallback
-  const rssResult = await fetchGoogleNewsRss(cleanKeywords);
+  // 2. Free RSS Search with Primary Query
+  let rssResult = await fetchGoogleNewsRss(cleanKeywords);
+
+  // 3. If primary query returned 0 results, retry with raw cleaned headline
+  if (rssResult.totalResults === 0 && query !== cleanKeywords) {
+    const rawClean = cleanHeadlineText(query);
+    if (rawClean && rawClean !== cleanKeywords) {
+      rssResult = await fetchGoogleNewsRss(rawClean);
+    }
+  }
+
   return {
     configured: Boolean(apiKey),
     provider: rssResult.provider,
