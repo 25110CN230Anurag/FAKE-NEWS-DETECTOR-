@@ -380,18 +380,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const sourcingScore = Math.min(100, (quotes * 22) + (attrMatches.length * 14) + (officialMatches.length * 16) + (totalWords > 50 ? 20 : 10));
     const objectivityScore = Math.max(0, Math.min(100, 100 - sensationalScore + Math.floor(sourcingScore / 3)));
 
-    let credibilityScore = Math.round(50 + (sourcingScore * 0.45) - (sensationalScore * 0.55));
+    let credibilityScore = 50;
+    if (sensationalScore >= 35) {
+      credibilityScore = Math.round((100 - sensationalScore) * 0.7);
+    } else if (sensationalScore <= 10) {
+      credibilityScore = Math.max(72, Math.round(65 + (sourcingScore * 0.35) - (sensationalScore * 0.65)));
+    } else {
+      credibilityScore = Math.round(50 + (sourcingScore * 0.45) - (sensationalScore * 0.55));
+    }
     credibilityScore = Math.max(5, Math.min(96, credibilityScore));
 
     let verdict = "VERIFIED CREDIBLE";
     let verdictType = "real";
     let summary = "Matches patterns of legitimate, professionally reported news with objective phrasing and credible syntax.";
 
-    if (credibilityScore < 45) {
+    if (credibilityScore <= 42 || sensationalScore >= 40) {
       verdict = "POTENTIALLY FAKE / MISLEADING";
       verdictType = "fake";
       summary = "Displays prominent characteristics of misleading articles, viral hoaxes, or clickbait exaggeration.";
-    } else if (credibilityScore <= 64) {
+    } else if (credibilityScore < 55) {
       verdict = "UNVERIFIED / MIXED SIGNALS";
       verdictType = "mixed";
       summary = "Contains mixed stylistic indicators. We recommend cross-referencing with primary wire services.";
@@ -457,7 +464,7 @@ document.addEventListener("DOMContentLoaded", () => {
     else if (data.verdict_type === "satire") icon.textContent = "🎭";
     else icon.textContent = "⚠";
 
-    document.getElementById("verdict-tag").textContent = data.verdict_type === "real" ? "VERIFIED CREDIBLE NEWS" : (data.verdict_type === "satire" ? "INTENTIONAL SATIRE / PARODY" : "MISLEADING / SUSPICIOUS PATTERN");
+    document.getElementById("verdict-tag").textContent = data.verdict_type === "real" ? "VERIFIED CREDIBLE NEWS" : (data.verdict_type === "satire" ? "INTENTIONAL SATIRE / PARODY" : (data.verdict_type === "fake" ? "POTENTIALLY FAKE / MISLEADING" : "UNVERIFIED / MIXED SIGNALS"));
     document.getElementById("verdict-title").textContent = data.verdict;
     document.getElementById("verdict-summary").textContent = data.summary;
 

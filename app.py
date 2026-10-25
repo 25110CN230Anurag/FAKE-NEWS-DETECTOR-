@@ -268,23 +268,29 @@ def analyze_linguistic_signals(headline: str, article: str):
         int((len(caps_words) * 7) + (len(sensational_matches) * 15) + (exclamations * 8) + (max(0, question_marks - 1) * 6))
     )
 
+    # 2. Journalistic Attribution & Sourcing
     quotes = len(re.findall(r'["\u201c\u201d\u2018\u2019][^"\u201c\u201d\u2018\u2019]{6,}["\u201c\u201d\u2018\u2019]', full_text))
     attribution_verbs = {
         "said", "reported", "stated", "confirmed", "announced", "testified",
         "found", "noted", "according", "concluded", "explained", "projected",
-        "commented", "declared", "added", "cited", "revealed", "spoke"
+        "commented", "declared", "added", "cited", "revealed", "spoke",
+        "unveiled", "launched", "defeated", "won", "signed", "appointed",
+        "passed", "approved", "recommended", "arrested", "scored", "held"
     }
     attr_matches = [w.lower() for w in words if w.lower() in attribution_verbs]
     official_markers = {
         "spokesperson", "department", "official", "officials", "university",
         "researchers", "scientists", "agency", "authorities", "commission",
-        "bureau", "spokesman", "spokeswoman", "investigators", "analysts"
+        "bureau", "spokesman", "spokeswoman", "investigators", "analysts",
+        "organisation", "organization", "ministry", "government", "police",
+        "centre", "center", "court", "hospital", "board", "isro", "nasa", "who"
     }
     official_matches = [w.lower() for w in words if w.lower() in official_markers]
+    numbers = len(re.findall(r'\b\d+(?:[\.,]\d+)?%?\b', full_text))
 
     sourcing_score = min(
         100,
-        int((quotes * 20) + (len(attr_matches) * 12) + (len(official_matches) * 14) + (20 if total_words > 60 else 10))
+        int((quotes * 20) + (len(attr_matches) * 14) + (len(official_matches) * 16) + (min(numbers, 5) * 5) + (15 if total_words > 40 else 5))
     )
 
     emotional_score = max(0, min(100, 100 - sensational_score + (sourcing_score // 3)))
@@ -470,15 +476,25 @@ def predict():
     # Domain intelligence check
     domain_info = get_domain_intelligence(source_url) if source_url else None
 
-    # Hybrid Credibility Score (0-100%)
-    model_score = real_prob * 100
-    stylometry_modifier = (ling["sourcing_score"] * 0.15) - (ling["sensational_score"] * 0.15)
-    base_credibility = model_score * 0.75 + (50 + stylometry_modifier) * 0.25
+    # Stylometric Journalism Index (0-100)
+    # Objective reporting with zero sensationalism starts at a credible prior of 65+
+    journalism_index = max(10, min(95, 65 + (ling["sourcing_score"] * 0.35) - (ling["sensational_score"] * 0.65)))
+
+    # Balance ML prediction with Stylometric Journalism signals
+    if ling["sensational_score"] >= 35:
+        # High sensationalism / clickbait words present: fake news signals dominate
+        base_credibility = (real_prob * 35) + ((100 - ling["sensational_score"]) * 0.65)
+    elif ling["sensational_score"] <= 10 and (ling["sourcing_score"] >= 12 or len(clean_text) >= 25):
+        # Clean objective reporting with zero sensationalism:
+        # Trust verified journalistic style over 2016-political-dataset vocabulary gaps
+        base_credibility = max(68.0, (journalism_index * 0.65) + (real_prob * 35))
+    else:
+        base_credibility = (real_prob * 50) + (journalism_index * 0.5)
 
     # Domain influence modifier
     if domain_info:
         if domain_info["badge"] == "high-trust":
-            base_credibility = (base_credibility * 0.8) + (domain_info["reputation_score"] * 0.2)
+            base_credibility = max(base_credibility, 80.0)
         elif domain_info["is_satire"]:
             base_credibility = 15.0
         elif domain_info["is_known_disinformation"]:
@@ -491,11 +507,11 @@ def predict():
         verdict = "VERIFIED SATIRE / PARODY"
         verdict_type = "satire"
         summary = f"Published by {domain_info['label']}. This is intentional humor/satire and not designed to report factual breaking news."
-    elif (credibility_score >= 55 or (prediction == "REAL" and ling["sensational_score"] <= 25 and credibility_score >= 48)) and ling["sensational_score"] < 40:
+    elif credibility_score >= 55 and ling["sensational_score"] <= 25:
         verdict = "VERIFIED CREDIBLE"
         verdict_type = "real"
         summary = "Matches patterns of legitimate, professionally reported news with objective phrasing, credible syntax, and absent sensationalism."
-    elif credibility_score <= 40 or (prediction == "FAKE" and ling["sensational_score"] >= 45):
+    elif credibility_score <= 42 or ling["sensational_score"] >= 40:
         verdict = "POTENTIALLY FAKE / MISLEADING"
         verdict_type = "fake"
         summary = "Displays prominent characteristics of misleading articles, viral hoaxes, or clickbait exaggeration."
@@ -515,7 +531,7 @@ def predict():
         "sha256": sha256_hash,
         "verdict": verdict,
         "verdict_type": verdict_type,
-        "prediction": prediction.upper(),
+        "prediction": "REAL" if verdict_type == "real" else ("SATIRE" if verdict_type == "satire" else "FAKE"),
         "credibility_score": credibility_score,
         "model_confidence": round(float(max(pipeline.predict_proba([clean_text])[0])) * 100, 1),
         "summary": summary,
@@ -537,5 +553,4 @@ def status():
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_ENV", "").lower() == "development"
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    app.run(host="0.0.0.0", port=port, debug=True)
