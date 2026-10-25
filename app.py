@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify, Response
 from pathlib import Path
+import os
 import re
+import json
 import joblib
 import hashlib
 from datetime import datetime
@@ -11,6 +13,27 @@ import jinja2
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "model" / "news_model.joblib"
+
+
+def load_env_file():
+    """Load key-value pairs from .env file into os.environ if present."""
+    env_file = BASE_DIR / ".env"
+    if env_file.exists():
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+
+load_env_file()
 
 app = Flask(
     __name__,
@@ -141,6 +164,143 @@ def clean_news_text(text: str) -> str:
     return cleaned.strip()
 
 
+CONSPIRACY_HOAX_PATTERNS = [
+    r'\b(?:earth is flat|flat earth)\b',
+    r'\b(?:gravity is an illusion)\b',
+    r'\b(?:cures? (?:cancer|coronavirus|covid|aids|hiv|diabetes|all diseases|tumors?))\b',
+    r'\b(?:boiled garlic|drinking bleach|drink bleach|miracle tonic|secret cure|miracle cure)\b',
+    r'\b(?:microchips? in vaccines?|vaccines? contain microchips?|trackable microchips?|microchips? to monitor)\b',
+    r'\b(?:5g\b.*(?:drop dead|birds?|radiation|cancer|illness|depopulation|frequencies?|activate|towers?))\b',
+    r'\b(?:alien (?:corpse|body|base|autopsy|invasion))\b',
+    r'\b(?:engineered body double|cloned? (?:politician|hillary|biden|trump|celebrity)|body double)\b',
+    r'\b(?:secretly arrested by military|military tribunal|guantanamo execution)\b',
+    r'\b(?:free (?:iphone|smartphone|laptop|macbook|cash|money|ten thousand dollars))\b',
+    r'\b(?:every citizen (?:will receive|gets free))\b',
+    r'\b(?:wake up sheeple|share (?:this )?before (?:it is|they) deleted?|they don\'t want you to know)\b',
+    r'\b(?:mainstream media won\'t tell you|100% confirmed by insider)\b'
+]
+
+
+def detect_disinfo_patterns(text: str):
+    """Detects hallmark conspiratorial claims, medical misinformation, and viral scams."""
+    if not isinstance(text, str):
+        return []
+    matches = []
+    text_lower = text.lower()
+    for pat in CONSPIRACY_HOAX_PATTERNS:
+        m = re.search(pat, text_lower)
+        if m:
+            matches.append(m.group(0))
+    return matches
+
+
+def query_google_fact_check(api_key: str, query: str):
+    """
+    Queries the official Google Fact Check Tools API for accredited fact-checks
+    from Snopes, PolitiFact, Reuters, AP News, FactCheck.org, BoomLive, etc.
+    """
+    if not api_key or not query:
+        return None
+    url = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
+    search_query = query[:120].strip()
+    params = {
+        "query": search_query,
+        "key": api_key,
+        "languageCode": "en",
+        "pageSize": 4
+    }
+    try:
+        resp = requests.get(url, params=params, timeout=5)
+        if resp.status_code == 200:
+            claims = resp.json().get("claims", [])
+            results = []
+            for c in claims:
+                claim_text = c.get("text", "")
+                claimant = c.get("claimant", "Viral social claim")
+                for r in c.get("claimReview", []):
+                    pub_info = r.get("publisher", {})
+                    rating = r.get("textualRating", "Unrated")
+                    results.append({
+                        "claim": claim_text,
+                        "claimant": claimant,
+                        "publisher": pub_info.get("name", "Fact-Checking Organization"),
+                        "site": pub_info.get("site", ""),
+                        "rating": rating,
+                        "url": r.get("url", ""),
+                        "title": r.get("title", "")
+                    })
+            if results:
+                false_keywords = {"false", "pants on fire", "fake", "misleading", "incorrect", "mostly false", "distorts the facts", "unproven", "inaccurate"}
+                true_keywords = {"true", "correct", "mostly true", "verified", "accurate"}
+                has_debunk = any(r["rating"].lower() in false_keywords or any(fk in r["rating"].lower() for fk in false_keywords) for r in results)
+                has_verified = any(r["rating"].lower() in true_keywords or any(tk in r["rating"].lower() for tk in true_keywords) for r in results)
+                return {
+                    "active": True,
+                    "service": "Google Fact Check Tools API",
+                    "reviews": results,
+                    "count": len(results),
+                    "has_debunk": has_debunk,
+                    "has_verified": has_verified
+                }
+    except Exception as e:
+        print(f"Google Fact Check API query error: {e}")
+    return None
+
+
+def query_gemini_fact_check(api_key: str, headline: str, text: str):
+    """
+    Uses Google Gemini 1.5 Flash REST API to perform factual cross-referencing
+    and deep journalistic reasoning.
+    """
+    if not api_key:
+        return None
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    system_instruction = (
+        "You are an expert investigative fact-checker and journalist. "
+        "Analyze the factual authenticity of the following news story. "
+        "Determine if it is factually verified real news, fabricated/misleading fake news, satire, or unverified. "
+        "Respond strictly with valid JSON with keys: "
+        "'verdict' ('REAL', 'FAKE', 'SATIRE', or 'UNVERIFIED'), "
+        "'credibility_score' (integer 0 to 100), "
+        "'summary' (1-2 sentence executive explanation), "
+        "'fact_check_details' (2-3 sentences providing context, evidence, or debunks), "
+        "'debunk_sources' (array of strings, e.g. names of news agencies or fact-checkers)."
+    )
+    user_content = f"Headline: {headline}\n\nArticle: {text[:1500]}"
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": f"{system_instruction}\n\n{user_content}"}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.1,
+            "responseMimeType": "application/json"
+        }
+    }
+    try:
+        resp = requests.post(url, json=payload, timeout=7)
+        if resp.status_code == 200:
+            candidates = resp.json().get("candidates", [])
+            if candidates:
+                raw_json = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                parsed = json.loads(raw_json)
+                return {
+                    "active": True,
+                    "service": "Google Gemini 1.5 Flash",
+                    "verdict": parsed.get("verdict", "UNVERIFIED"),
+                    "credibility_score": int(parsed.get("credibility_score", 50)),
+                    "summary": parsed.get("summary", ""),
+                    "fact_check_details": parsed.get("fact_check_details", ""),
+                    "debunk_sources": parsed.get("debunk_sources", [])
+                }
+    except Exception as e:
+        print(f"Gemini API query error: {e}")
+    return None
+
+
 def analyze_sentences(article_text: str):
     """
     Splits article text into individual sentences and classifies each:
@@ -157,19 +317,24 @@ def analyze_sentences(article_text: str):
     raw_sentences = [s.strip() for s in raw_sentences if len(s.strip()) > 10]
 
     sensational_words = {
-        "shocking", "bombshell", "unbelievable", "secret", "exposed", "scandal",
-        "destroy", "destroyed", "cabal", "hoax", "conspiracy", "mainstream",
-        "jawdropping", "must-see", "horrifying", "urgent", "miracle", "poison",
-        "alien", "microchip", "illuminati", "disgrace", "treason", "traitor",
-        "scumbag", "brainwashed", "terrifying", "presstitutes", "elites"
+        "shocking", "shock", "shocked", "bombshell", "unbelievable", "secret", "secretly",
+        "exposed", "scandal", "destroy", "destroyed", "cabal", "hoax", "conspiracy",
+        "mainstream", "jawdropping", "must-see", "horrifying", "urgent", "miracle",
+        "poison", "alien", "microchip", "microchips", "illuminati", "disgrace",
+        "treason", "traitor", "scumbag", "brainwashed", "terrifying", "presstitutes", "elites"
     }
     attr_verbs = {
         "said", "reported", "stated", "confirmed", "announced", "testified",
-        "found", "noted", "according", "concluded", "projected", "commented", "declared"
+        "found", "noted", "according", "concluded", "projected", "commented", "declared",
+        "unveiled", "launched", "published", "discovered", "approved", "signed", "recommended"
     }
     official_markers = {
         "spokesperson", "department", "official", "officials", "university",
-        "researchers", "scientists", "agency", "authorities", "commission", "bureau", "investigators"
+        "researchers", "scientists", "agency", "authorities", "commission", "bureau",
+        "investigators", "analysts", "organisation", "organization", "ministry",
+        "government", "police", "court", "hospital", "isro", "nasa", "who", "federal reserve",
+        "company", "corp", "corporation", "firm", "apple", "google", "microsoft", "meta",
+        "amazon", "sony", "samsung", "nvidia", "intel", "biologists", "nature", "science", "commissioner"
     }
     unsubstantiated_phrases = [
         "everybody knows", "undeniable proof", "they don't want you to know",
@@ -185,9 +350,14 @@ def analyze_sentences(article_text: str):
         reasons = []
         category = "neutral"
 
+        # Check for Disinformation / Conspiracy markers
+        disinfo = detect_disinfo_patterns(sentence)
+        if disinfo:
+            reasons.append(f"Flagged viral hoax / conspiracy claim: '{disinfo[0]}'")
+
         # Check for Sensational indicators
         has_sens_words = [w.lower() for w in words if w.lower() in sensational_words]
-        caps_words = [w for w in words if w.isupper() and len(w) > 1 and w.lower() not in {"usa", "us", "uk", "eu", "un", "gop", "fbi", "cia", "nasa", "ai", "ceo"}]
+        caps_words = [w for w in words if w.isupper() and len(w) > 1 and w.lower() not in {"usa", "us", "uk", "eu", "un", "gop", "fbi", "cia", "nasa", "ai", "ceo", "isro", "who"}]
         exclamations = sentence.count("!")
 
         if has_sens_words:
@@ -215,7 +385,7 @@ def analyze_sentences(article_text: str):
             reasons.append(f"References formal or scientific institution ('{has_official[0]}')")
 
         # Prioritize categorization
-        if reasons and (has_sens_words or len(caps_words) >= 2 or exclamations >= 2):
+        if disinfo or reasons and (has_sens_words or len(caps_words) >= 2 or exclamations >= 2):
             category = "sensational"
             stats["sensational"] += 1
         elif any("rhetoric" in r for r in reasons):
@@ -252,13 +422,13 @@ def analyze_linguistic_signals(headline: str, article: str):
     total_words = max(len(words), 1)
 
     sensational_words = {
-        "shocking", "bombshell", "unbelievable", "secret", "exposed", "scandal",
-        "destroy", "destroyed", "cabal", "hoax", "conspiracy", "mainstream",
-        "bizarre", "jawdropping", "must-see", "horrifying", "urgent",
-        "breakdown", "miracle", "poison", "alien", "microchip", "illuminati",
+        "shocking", "shock", "shocked", "bombshell", "unbelievable", "secret", "secretly",
+        "exposed", "scandal", "destroy", "destroyed", "cabal", "hoax", "conspiracy",
+        "mainstream", "bizarre", "jawdropping", "must-see", "horrifying", "urgent",
+        "breakdown", "miracle", "poison", "alien", "microchip", "microchips", "illuminati",
         "disgrace", "treason", "traitor", "scumbag", "brainwashed", "terrifying"
     }
-    caps_words = [w for w in words if w.isupper() and len(w) > 1 and w.lower() not in {"usa", "us", "uk", "eu", "un", "gop", "fbi", "cia", "nasa", "ai", "ceo"}]
+    caps_words = [w for w in words if w.isupper() and len(w) > 1 and w.lower() not in {"usa", "us", "uk", "eu", "un", "gop", "fbi", "cia", "nasa", "ai", "ceo", "isro", "who"}]
     sensational_matches = [w.lower() for w in words if w.lower() in sensational_words]
     exclamations = full_text.count("!")
     question_marks = full_text.count("?")
@@ -275,7 +445,8 @@ def analyze_linguistic_signals(headline: str, article: str):
         "found", "noted", "according", "concluded", "explained", "projected",
         "commented", "declared", "added", "cited", "revealed", "spoke",
         "unveiled", "launched", "defeated", "won", "signed", "appointed",
-        "passed", "approved", "recommended", "arrested", "scored", "held"
+        "passed", "approved", "recommended", "arrested", "scored", "held",
+        "published", "discovered"
     }
     attr_matches = [w.lower() for w in words if w.lower() in attribution_verbs]
     official_markers = {
@@ -283,7 +454,9 @@ def analyze_linguistic_signals(headline: str, article: str):
         "researchers", "scientists", "agency", "authorities", "commission",
         "bureau", "spokesman", "spokeswoman", "investigators", "analysts",
         "organisation", "organization", "ministry", "government", "police",
-        "centre", "center", "court", "hospital", "board", "isro", "nasa", "who"
+        "centre", "center", "court", "hospital", "board", "isro", "nasa", "who", "federal reserve",
+        "company", "corp", "corporation", "firm", "apple", "google", "microsoft", "meta",
+        "amazon", "sony", "samsung", "nvidia", "intel", "biologists", "nature", "science", "commissioner"
     }
     official_matches = [w.lower() for w in words if w.lower() in official_markers]
     numbers = len(re.findall(r'\b\d+(?:[\.,]\d+)?%?\b', full_text))
@@ -457,15 +630,17 @@ def predict():
         }), 400
 
     clean_text = clean_news_text(raw_text)
-    prediction = str(pipeline.predict([clean_text])[0])
     
     try:
         probas = pipeline.predict_proba([clean_text])[0]
         classes = list(pipeline.classes_)
-        real_idx = classes.index("REAL") if "REAL" in classes else 0
-        real_prob = float(probas[real_idx])
+        fake_idx = classes.index("FAKE") if "FAKE" in classes else 0
+        real_idx = classes.index("REAL") if "REAL" in classes else 1
+        raw_fake_prob = float(probas[fake_idx])
+        raw_real_prob = float(probas[real_idx])
     except Exception:
-        real_prob = 0.5
+        raw_fake_prob = 0.5
+        raw_real_prob = 0.5
 
     # Run linguistic analysis
     ling = analyze_linguistic_signals(headline, article)
@@ -476,49 +651,133 @@ def predict():
     # Domain intelligence check
     domain_info = get_domain_intelligence(source_url) if source_url else None
 
-    # Stylometric Journalism Index (0-100)
-    # Objective reporting with zero sensationalism starts at a credible prior of 65+
-    journalism_index = max(10, min(95, 65 + (ling["sourcing_score"] * 0.35) - (ling["sensational_score"] * 0.65)))
+    # Detect known viral hoax / conspiracy claims
+    disinfo_matches = detect_disinfo_patterns(raw_text)
+    if disinfo_matches:
+        ling["signals"].insert(0, {
+            "type": "negative",
+            "text": f"Flagged viral hoax / conspiracy claim: '{disinfo_matches[0]}'"
+        })
 
-    # Balance ML prediction with Stylometric Journalism signals
-    if ling["sensational_score"] >= 35:
-        # High sensationalism / clickbait words present: fake news signals dominate
-        base_credibility = (real_prob * 35) + ((100 - ling["sensational_score"]) * 0.65)
-    elif ling["sensational_score"] <= 10 and (ling["sourcing_score"] >= 12 or len(clean_text) >= 25):
-        # Clean objective reporting with zero sensationalism:
-        # Trust verified journalistic style over 2016-political-dataset vocabulary gaps
-        base_credibility = max(68.0, (journalism_index * 0.65) + (real_prob * 35))
-    else:
-        base_credibility = (real_prob * 50) + (journalism_index * 0.5)
+    # 0. Check for External API Keys (client payload or server environment)
+    factcheck_api_key = payload.get("factcheck_api_key") or os.environ.get("GOOGLE_FACTCHECK_API_KEY") or os.environ.get("FACTCHECK_API_KEY")
+    gemini_api_key = payload.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_GEMINI_API_KEY")
 
-    # Domain influence modifier
-    if domain_info:
-        if domain_info["badge"] == "high-trust":
-            base_credibility = max(base_credibility, 80.0)
-        elif domain_info["is_satire"]:
-            base_credibility = 15.0
-        elif domain_info["is_known_disinformation"]:
-            base_credibility = min(base_credibility, 20.0)
+    # Run External Fact Check API if key is present
+    external_fact_check = None
+    if factcheck_api_key:
+        query_text = headline if headline else clean_text[:120]
+        external_fact_check = query_google_fact_check(factcheck_api_key, query_text)
 
-    credibility_score = max(5, min(98, round(base_credibility, 1)))
+    # Run Gemini API if key is present
+    gemini_fact_check = None
+    if gemini_api_key:
+        if not (external_fact_check and external_fact_check.get("has_debunk")):
+            gemini_fact_check = query_gemini_fact_check(gemini_api_key, headline, clean_text)
 
-    # Determine Verdict with Satire handling
+    # Calibrated Credibility & Verdict Determination
+    # 1. Satire domain
     if domain_info and domain_info["is_satire"]:
+        credibility_score = 15.0
         verdict = "VERIFIED SATIRE / PARODY"
         verdict_type = "satire"
         summary = f"Published by {domain_info['label']}. This is intentional humor/satire and not designed to report factual breaking news."
-    elif credibility_score >= 55 and ling["sensational_score"] <= 25:
-        verdict = "VERIFIED CREDIBLE"
-        verdict_type = "real"
-        summary = "Matches patterns of legitimate, professionally reported news with objective phrasing, credible syntax, and absent sensationalism."
-    elif credibility_score <= 42 or ling["sensational_score"] >= 40:
+
+    # 2. External Fact-Checker Debunk (Snopes, PolitiFact, Reuters, etc.)
+    elif external_fact_check and external_fact_check.get("has_debunk"):
+        debunk_review = next((r for r in external_fact_check["reviews"] if any(fk in r["rating"].lower() for fk in ["false", "pants on fire", "fake", "misleading", "incorrect", "unproven"])), external_fact_check["reviews"][0])
+        credibility_score = 5.0
         verdict = "POTENTIALLY FAKE / MISLEADING"
         verdict_type = "fake"
-        summary = "Displays prominent characteristics of misleading articles, viral hoaxes, or clickbait exaggeration."
-    else:
+        summary = f"Debunked as '{debunk_review['rating']}' by {debunk_review['publisher']}: {debunk_review['title'] or debunk_review['claim']}"
+
+    # 3. External Fact-Checker Verified as TRUE
+    elif external_fact_check and external_fact_check.get("has_verified"):
+        credibility_score = 96.0
+        verdict = "VERIFIED CREDIBLE"
+        verdict_type = "real"
+        summary = f"Independently verified as true by {external_fact_check['reviews'][0]['publisher']} ({external_fact_check['reviews'][0]['rating']})."
+
+    # 4. Known Disinformation domain or explicit viral hoax / conspiracy match
+    elif (domain_info and domain_info["is_known_disinformation"]) or disinfo_matches:
+        credibility_score = round(max(5.0, 15.0 - (len(disinfo_matches) * 4)), 1)
+        verdict = "POTENTIALLY FAKE / MISLEADING"
+        verdict_type = "fake"
+        flagged_reason = f"Flagged known disinformation pattern: '{disinfo_matches[0]}'" if disinfo_matches else "Source domain is a recognized purveyor of disinformation"
+        summary = f"{flagged_reason}. Displays prominent characteristics of viral hoaxes and fabricated claims."
+
+    # 5. Gemini AI Live Reasoning Verdict (if active)
+    elif gemini_fact_check and gemini_fact_check.get("verdict") in {"REAL", "FAKE", "SATIRE"}:
+        if gemini_fact_check["verdict"] == "FAKE":
+            credibility_score = min(25.0, float(gemini_fact_check["credibility_score"]))
+            verdict = "POTENTIALLY FAKE / MISLEADING"
+            verdict_type = "fake"
+            summary = gemini_fact_check["summary"] or "Gemini Live Fact-Check flagged this story as misleading or unverified."
+        elif gemini_fact_check["verdict"] == "REAL" and ling["sensational_score"] <= 20:
+            credibility_score = max(80.0, float(gemini_fact_check["credibility_score"]))
+            verdict = "VERIFIED CREDIBLE"
+            verdict_type = "real"
+            summary = gemini_fact_check["summary"] or "Gemini Live Fact-Check verified this event through active news citations."
+        elif gemini_fact_check["verdict"] == "SATIRE":
+            credibility_score = 15.0
+            verdict = "VERIFIED SATIRE / PARODY"
+            verdict_type = "satire"
+            summary = gemini_fact_check["summary"] or "Gemini Live Fact-Check identified this story as intentional satire."
+        else:
+            credibility_score = 50.0
+            verdict = "UNVERIFIED / MIXED SIGNALS"
+            verdict_type = "mixed"
+            summary = gemini_fact_check["summary"] or "Inconclusive results from live grounding."
+
+    # 6. High sensationalism (clickbait words, excessive caps, multiple exclamation points)
+    elif ling["sensational_score"] >= 35:
+        credibility_score = round(max(8.0, 35.0 - (ling["sensational_score"] * 0.3)), 1)
+        verdict = "POTENTIALLY FAKE / MISLEADING"
+        verdict_type = "fake"
+        summary = "Displays prominent characteristics of misleading articles, clickbait exaggeration, and sensationalist rhetoric."
+
+    # 7. Verified High-Trust domain (Reuters, BBC, AP, NYT, The Hindu, etc.)
+    elif domain_info and domain_info["badge"] == "high-trust":
+        credibility_score = round(min(98.0, max(82.0, (raw_real_prob * 100) * 0.5 + 45.0)), 1)
+        verdict = "VERIFIED CREDIBLE"
+        verdict_type = "real"
+        summary = f"Published by verified high-trust news organization ({domain_info['label']}) with rigorous editorial standards."
+
+    # 8. Machine Learning model strongly predicts FAKE (fake_prob >= 65%) with low sourcing
+    elif raw_fake_prob >= 0.65 and ling["sourcing_score"] < 25:
+        credibility_score = round(max(10.0, raw_real_prob * 60.0), 1)
+        verdict = "POTENTIALLY FAKE / MISLEADING"
+        verdict_type = "fake"
+        summary = f"Linguistic and stylistic patterns match known fake news distributions (Model fake confidence: {raw_fake_prob*100:.1f}%)."
+
+    # 9. Machine Learning model predicts REAL (real_prob >= 60%) with low sensationalism
+    elif raw_real_prob >= 0.60 and ling["sensational_score"] <= 15:
+        credibility_score = round(min(96.0, 70.0 + (raw_real_prob * 20.0) + (ling["sourcing_score"] * 0.1)), 1)
+        verdict = "VERIFIED CREDIBLE"
+        verdict_type = "real"
+        summary = "Matches patterns of legitimate, professionally reported news with objective phrasing and verified syntax."
+
+    # 10. Objective reporting style with verified attribution & absent sensationalism
+    # (Accurately covers real tech, science, health, space, international news outside 2016 US politics)
+    elif ling["sensational_score"] <= 10 and ling["sourcing_score"] >= 20:
+        credibility_score = round(min(92.0, 68.0 + (ling["sourcing_score"] * 0.2) + (raw_real_prob * 15.0)), 1)
+        verdict = "VERIFIED CREDIBLE"
+        verdict_type = "real"
+        summary = "Objective journalistic reporting with verified institutional attribution and absent sensationalism."
+
+    # 11. Borderline / moderate signals
+    elif raw_real_prob >= 0.45 and ling["sensational_score"] <= 15:
+        credibility_score = round(50.0 + (raw_real_prob * 10.0), 1)
         verdict = "UNVERIFIED / MIXED SIGNALS"
         verdict_type = "mixed"
         summary = "Contains mixed stylistic indicators. We recommend cross-referencing with primary wire services."
+
+    # 12. Fallback: Leaning fake
+    else:
+        credibility_score = round(max(15.0, raw_real_prob * 50.0), 1)
+        verdict = "POTENTIALLY FAKE / MISLEADING"
+        verdict_type = "fake"
+        summary = "Lacks credible journalistic indicators and contains characteristics common in unverified claims."
 
     # Cryptographic SHA-256 fingerprint & Case ID
     sha256_hash = hashlib.sha256(raw_text.encode("utf-8")).hexdigest()
@@ -538,7 +797,19 @@ def predict():
         "linguistics": ling,
         "sentence_heatmap": sentence_heatmap,
         "domain_info": domain_info,
-        "notice": "This analysis evaluates text stylometry, domain trust, and machine-learning patterns. Always verify critical claims with independent primary sources."
+        "external_fact_check": external_fact_check,
+        "gemini_fact_check": gemini_fact_check,
+        "api_active": bool(external_fact_check or gemini_fact_check),
+        "notice": "This analysis evaluates text stylometry, domain trust, machine-learning patterns, and external fact-checking APIs when configured."
+    })
+
+
+@app.route("/api/api-status", methods=["GET"])
+def api_status():
+    return jsonify({
+        "factcheck_configured": bool(os.environ.get("GOOGLE_FACTCHECK_API_KEY") or os.environ.get("FACTCHECK_API_KEY")),
+        "gemini_configured": bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_GEMINI_API_KEY")),
+        "model_ready": pipeline is not None
     })
 
 

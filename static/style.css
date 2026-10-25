@@ -1618,3 +1618,426 @@ footer {
     text-align: center;
   }
 }
+
+/* ==========================================================================
+   Live Fact-Checking API & Grounding UI
+   ========================================================================== */
+.api-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--glass-card);
+  border: 1px solid var(--glass-border);
+  color: var(--ink-800);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px var(--glass-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.api-settings-btn:hover {
+  background: var(--ink-100);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.api-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-400);
+  transition: all 0.3s ease;
+}
+
+.api-status-dot.active {
+  background: var(--real-green);
+  box-shadow: 0 0 10px var(--real-glow);
+}
+
+/* Live Fact-Check Grounding Panel */
+.live-factcheck-panel {
+  background: var(--glass-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  margin-top: 18px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 24px var(--glass-shadow);
+  animation: fadeIn 0.35s ease;
+}
+
+.factcheck-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.factcheck-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.factcheck-header-icon {
+  font-size: 1.4rem;
+}
+
+.factcheck-header-title h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ink-900);
+}
+
+.factcheck-provider-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.factcheck-status-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: var(--real-green-light);
+  color: var(--real-green);
+  border: 1px solid var(--real-green-border);
+}
+
+.factcheck-content-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.factcheck-review-card {
+  background: var(--ink-50);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  transition: all 0.2s ease;
+}
+
+.factcheck-review-card:hover {
+  border-color: var(--primary-border);
+  background: var(--glass-card);
+}
+
+.review-top-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.review-publisher {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: var(--ink-900);
+}
+
+.review-rating-pill {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.review-rating-pill.false {
+  background: var(--fake-red-light);
+  color: var(--fake-red);
+  border: 1px solid var(--fake-red-border);
+}
+
+.review-rating-pill.true {
+  background: var(--real-green-light);
+  color: var(--real-green);
+  border: 1px solid var(--real-green-border);
+}
+
+.review-rating-pill.misleading {
+  background: var(--warn-amber-light);
+  color: var(--warn-amber);
+  border: 1px solid var(--warn-amber-border);
+}
+
+.review-claim-text {
+  font-size: 0.84rem;
+  color: var(--ink-800);
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+.review-source-link {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.review-source-link:hover {
+  text-decoration: underline;
+}
+
+/* Gemini AI Grounding Box */
+.gemini-analysis-box {
+  background: var(--primary-light);
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+
+.gemini-analysis-box p {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--ink-900);
+  margin: 0 0 10px;
+}
+
+.gemini-sources-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.gemini-source-tag {
+  background: var(--glass-card);
+  border: 1px solid var(--glass-border);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  color: var(--ink-800);
+}
+
+/* API Upsell Banner */
+.api-upsell-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--ink-50);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin-top: 18px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.api-upsell-icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.api-upsell-text {
+  flex: 1;
+}
+
+.api-upsell-text h5 {
+  margin: 0 0 4px;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--ink-900);
+}
+
+.api-upsell-text p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-600);
+  line-height: 1.4;
+}
+
+.btn-connect-api {
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.btn-connect-api:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+/* Glassmorphic API Modal */
+.api-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 30, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.api-modal-card {
+  width: 100%;
+  max-width: 520px;
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.api-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.api-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.api-modal-title h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--ink-900);
+}
+
+.close-modal-btn {
+  background: var(--ink-100);
+  border: none;
+  color: var(--ink-600);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.close-modal-btn:hover {
+  background: var(--fake-red-light);
+  color: var(--fake-red);
+}
+
+.api-modal-desc {
+  font-size: 0.8125rem;
+  color: var(--ink-600);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+
+.api-config-field {
+  margin-bottom: 18px;
+}
+
+.api-field-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+  color: var(--ink-900);
+}
+
+.api-badge-free {
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: var(--real-green-light);
+  color: var(--real-green);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.api-field-help {
+  font-size: 0.75rem;
+  color: var(--ink-500);
+  margin: 0 0 8px;
+}
+
+.api-field-help a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.api-field-help a:hover {
+  text-decoration: underline;
+}
+
+.api-key-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--ink-50);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--ink-900);
+  font-size: 0.875rem;
+  font-family: monospace;
+  box-sizing: border-box;
+}
+
+.api-key-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.api-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.api-save-status {
+  margin-top: 14px;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.api-save-status.success {
+  background: var(--real-green-light);
+  color: var(--real-green);
+  border: 1px solid var(--real-green-border);
+}
+
+.api-save-status.cleared {
+  background: var(--ink-100);
+  color: var(--ink-700);
+}

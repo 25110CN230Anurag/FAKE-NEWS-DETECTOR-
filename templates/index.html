@@ -72,6 +72,16 @@
         </div>
         <button
           type="button"
+          id="api-settings-btn"
+          class="api-settings-btn"
+          aria-label="Fact-Check API settings"
+          title="Configure Gemini or Google Fact Check API"
+        >
+          <span class="api-status-dot" id="api-status-dot"></span>
+          <span id="api-status-label">Fact-Check API</span>
+        </button>
+        <button
+          type="button"
           id="theme-toggle"
           class="theme-toggle-btn"
           aria-label="Toggle dark mode"
@@ -435,6 +445,33 @@
               </div>
             </div>
 
+            <!-- Feature: Live Fact-Check & External Verification Panel -->
+            <div id="live-factcheck-panel" class="live-factcheck-panel hidden">
+              <div class="factcheck-panel-header">
+                <div class="factcheck-header-title">
+                  <span class="factcheck-header-icon">🌐</span>
+                  <div>
+                    <h4>Live External Fact-Check Grounding</h4>
+                    <span id="factcheck-provider-tag" class="factcheck-provider-tag">Google Fact Check API</span>
+                  </div>
+                </div>
+                <span id="factcheck-status-badge" class="factcheck-status-badge">Ground Truth Verified</span>
+              </div>
+              <div id="factcheck-content-area" class="factcheck-content-area">
+                <!-- Dynamically populated fact-checks -->
+              </div>
+            </div>
+
+            <!-- Optional Live Grounding Prompt Card -->
+            <div id="api-upsell-card" class="api-upsell-card">
+              <div class="api-upsell-icon">⚡</div>
+              <div class="api-upsell-text">
+                <h5>Want Real-Time Web Grounding & Debunks?</h5>
+                <p>Connect a free Gemini or Google Fact Check API key to verify breaking claims against Snopes, PolitiFact, and live wire services.</p>
+              </div>
+              <button type="button" class="btn-connect-api" id="btn-prompt-connect-api">Connect Free Key</button>
+            </div>
+
             <!-- Signal Evidence Checklist -->
             <div class="signals-box">
               <h4>Detected Stylistic Signals</h4>
@@ -514,6 +551,47 @@
         </div>
       </section>
     </main>
+
+    <!-- Real-Time Fact-Check API Settings Modal -->
+    <div id="api-modal" class="api-modal-backdrop hidden">
+      <div class="api-modal-card glass-panel">
+        <div class="api-modal-header">
+          <div class="api-modal-title">
+            <span class="api-modal-icon">🔑</span>
+            <h3>Real-Time Fact-Checking API Configuration</h3>
+          </div>
+          <button type="button" id="close-api-modal" class="close-modal-btn" aria-label="Close modal">✕</button>
+        </div>
+        <p class="api-modal-desc">
+          Supercharge NewsCheck with live fact-checking debunks and real-time web grounding. Keys are saved securely in your browser and sent with requests, or can be set in your server's <code>.env</code> file.
+        </p>
+
+        <div class="api-config-field">
+          <div class="api-field-label">
+            <strong>1. Google Gemini API Key</strong>
+            <span class="api-badge-free">Free Tier</span>
+          </div>
+          <p class="api-field-help">Powers AI real-time search grounding and deep investigative reasoning. <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Get a free key at Google AI Studio ↗</a></p>
+          <input type="password" id="input-gemini-key" class="api-key-input" placeholder="AIzaSy..." autocomplete="off">
+        </div>
+
+        <div class="api-config-field">
+          <div class="api-field-label">
+            <strong>2. Google Fact Check Tools API Key</strong>
+            <span class="api-badge-free">100% Free</span>
+          </div>
+          <p class="api-field-help">Queries accredited debunks from Snopes, PolitiFact, Reuters, and FactCheck.org. <a href="https://console.cloud.google.com/apis/library/factchecktools.googleapis.com" target="_blank" rel="noopener">Enable free in Google Cloud Console ↗</a></p>
+          <input type="password" id="input-factcheck-key" class="api-key-input" placeholder="AIzaSy..." autocomplete="off">
+        </div>
+
+        <div class="api-modal-actions">
+          <button type="button" id="save-api-keys-btn" class="btn-primary" style="flex: 2;">Save & Activate Live Grounding</button>
+          <button type="button" id="clear-api-keys-btn" class="btn-secondary" style="flex: 1;">Clear Keys</button>
+        </div>
+
+        <div id="api-save-status" class="api-save-status hidden"></div>
+      </div>
+    </div>
 
     <!-- Footer -->
     <footer>
