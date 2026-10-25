@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from pathlib import Path
 import re
 import joblib
@@ -7,11 +7,24 @@ from datetime import datetime
 import urllib.parse
 import requests
 from bs4 import BeautifulSoup
+import jinja2
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "model" / "news_model.joblib"
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+app = Flask(
+    __name__,
+    static_folder=str(BASE_DIR / "static"),
+    template_folder=str(BASE_DIR / "templates")
+)
+
+# Robust multi-location template loader for Cloud / Docker environments
+app.jinja_loader = jinja2.ChoiceLoader([
+    jinja2.FileSystemLoader(str(BASE_DIR / "templates")),
+    jinja2.FileSystemLoader(str(BASE_DIR)),
+    jinja2.FileSystemLoader("/app/templates"),
+    jinja2.FileSystemLoader("/app"),
+])
 
 
 def load_model():
@@ -305,9 +318,33 @@ def analyze_linguistic_signals(headline: str, article: str):
 # ==============================================================================
 # Routes
 # ==============================================================================
-@app.route("/")
+@app.route("/", methods=["GET", "HEAD"])
 def index():
-    return render_template("index.html", model_ready=pipeline is not None)
+    if request.method == "HEAD":
+        return Response("", status=200, mimetype="text/html")
+
+    model_ready = pipeline is not None
+    try:
+        return render_template("index.html", model_ready=model_ready)
+    except jinja2.exceptions.TemplateNotFound:
+        # Resilient fallback: locate and serve index.html directly
+        for candidate in [
+            BASE_DIR / "templates" / "index.html",
+            BASE_DIR / "index.html",
+            Path("/app/templates/index.html"),
+            Path("/app/index.html"),
+            Path("templates/index.html"),
+            Path("index.html")
+        ]:
+            if candidate.exists():
+                content = candidate.read_text(encoding="utf-8")
+                return content, 200, {"Content-Type": "text/html; charset=utf-8"}
+        raise
+
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "healthy", "model_ready": pipeline is not None}), 200
 
 
 @app.route("/api/scrape-url", methods=["POST"])

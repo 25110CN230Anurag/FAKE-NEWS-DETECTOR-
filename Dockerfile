@@ -19,5 +19,5 @@ COPY . .
 # Expose port
 EXPOSE 5000
 
-# Run with Gunicorn production WSGI server
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "app:app"]
+# Run with Gunicorn production WSGI server, binding dynamically to $PORT (Render / Cloud Run)
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --threads 4 app:app"]
