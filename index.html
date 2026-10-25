@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Professional Newsroom Credibility & Fake News Detection Engine">
+  <title>NewsCheck — AI News Credibility & Fact-Checker</title>
+  
+  <script>
+    // Immediate Theme Initialization (prevents flash of white in dark mode)
+    (function() {
+      const savedTheme = localStorage.getItem("newscheck-theme");
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+
+  <!-- Ambient Glowing Glass Mesh Background Orbs -->
+  <div class="ambient-glow glow-blue"></div>
+  <div class="ambient-glow glow-purple"></div>
+  <div class="ambient-glow glow-cyan"></div>
+
+  <!-- Top Navigation Bar -->
+  <header class="topbar">
+    <a class="brand" href="/">
+      <div class="brand-icon">N</div>
+      <div class="brand-text">
+        <span class="brand-title">NewsCheck</span>
+        <span class="brand-sub">Fact-Checking & Credibility AI</span>
+      </div>
+    </a>
+    <div class="header-meta">
+      <div id="server-status" class="status-badge">
+        <span class="status-indicator"></span>
+        <span class="status-text">AI Ready</span>
+      </div>
+      <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle dark mode" title="Toggle dark/light theme">
+        <span class="theme-toggle-indicator" id="theme-toggle-icon">🌙</span>
+        <span id="theme-toggle-label">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="main-wrapper">
+    
+    <!-- Hero Header -->
+    <section class="hero-banner">
+      <div class="hero-tag">
+        <span>⚡</span> Natural Language Processing & Newsroom Verification
+      </div>
+      <h1 class="hero-title">Verify Any News Story.<br><span>Detect Misinformation Fast.</span></h1>
+      <p class="hero-desc">
+        Evaluate news stories against machine learning models trained on 44,000+ verified reports, combined with real-time NLP linguistic stylometry, domain trust reputation, and sentence-level claim heatmaps.
+      </p>
+    </section>
+
+    <!-- Quick-Fill Preset Samples -->
+    <section class="sample-bar">
+      <span class="sample-bar-label">
+        <span>🔍</span> Try Verified Samples:
+      </span>
+      <div class="sample-chips">
+        <button type="button" class="sample-btn" data-sample="fed_real">
+          <span class="chip-badge chip-real">Real News</span>
+          <span>Fed Rate Cuts Decision</span>
+        </button>
+        <button type="button" class="sample-btn" data-sample="science_real">
+          <span class="chip-badge chip-real">Real News</span>
+          <span>James Webb Deep Galaxy Discovery</span>
+        </button>
+        <button type="button" class="sample-btn" data-sample="satire_onion">
+          <span class="chip-badge chip-satire">Satire</span>
+          <span>The Onion Parody Article</span>
+        </button>
+        <button type="button" class="sample-btn" data-sample="water_fake">
+          <span class="chip-badge chip-fake">Fake News</span>
+          <span>Secret Tap Water Poisoning Cabal</span>
+        </button>
+        <button type="button" class="sample-btn" data-sample="hoax_fake">
+          <span class="chip-badge chip-fake">Fake News</span>
+          <span>Viral Celebrity Island Party Hoax</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Workspace Grid -->
+    <div class="workspace-grid">
+      
+      <!-- Input Desk Panel -->
+      <section class="panel-card input-desk">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <h2>News Verification Desk</h2>
+            <p class="panel-sub">Inspect articles via direct text or public web link</p>
+          </div>
+          <span class="panel-badge">INPUT</span>
+        </div>
+
+        <!-- Mode Toggle Tabs (Feature 1: URL Scraper vs Paste Text) -->
+        <div class="input-tabs">
+          <button type="button" id="tab-text-btn" class="tab-btn active">
+            <span>📝</span> Paste Article Text
+          </button>
+          <button type="button" id="tab-url-btn" class="tab-btn">
+            <span>🔗</span> Verify Web Article URL
+          </button>
+        </div>
+
+        <!-- URL Scraper Input Container -->
+        <div id="url-input-container" class="url-input-box hidden">
+          <label class="form-label" for="article-url">
+            Article Web Address (URL)
+            <span>Automatic Article Scraping & Domain Trust</span>
+          </label>
+          <div class="url-fetch-row">
+            <input type="url" id="article-url" class="input-field" placeholder="e.g. https://www.bbc.com/news/world-us-canada-68234...">
+            <button type="button" id="fetch-url-btn" class="btn-fetch">
+              <span>Fetch & Verify Link</span>
+            </button>
+          </div>
+          <div id="domain-trust-display" class="domain-trust-banner neutral hidden">
+            <div>
+              <span class="domain-name" id="domain-name-label">bbc.com</span> —
+              <span id="domain-type-label">Verified News Agency</span>
+            </div>
+            <div class="domain-score" id="domain-score-label">Trust: 95/100</div>
+          </div>
+        </div>
+
+        <!-- News Text Form -->
+        <form id="news-form">
+          <div class="form-group">
+            <label class="form-label" for="headline">
+              Headline
+              <span>Optional</span>
+            </label>
+            <input type="text" id="headline" name="headline" class="input-field" maxlength="500" placeholder="e.g. Federal Reserve signals two rate cuts ahead as inflation cools...">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="article">
+              Article Body or Excerpt
+              <span>Recommended (More context improves accuracy)</span>
+            </label>
+            <textarea id="article" name="article" class="input-field" rows="8" maxlength="50000" placeholder="Paste the full article or opening paragraphs here. The system examines attribution, sourcing, direct quotes, emotional vocabulary, and syntax..."></textarea>
+            
+            <div class="form-meta">
+              <span id="char-count">0 characters</span>
+              <span id="word-count">0 words</span>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="analyze-btn" class="btn-primary">
+              <span>Run News Verification</span>
+              <span class="btn-arrow">→</span>
+            </button>
+            <button type="button" id="clear-btn" class="btn-secondary" title="Clear inputs">Clear</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Results & Intelligence Panel -->
+      <aside class="panel-card results-desk" aria-live="polite">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <h2>Intelligence Assessment</h2>
+            <p class="panel-sub">NLP Stylometry & Model Output</p>
+          </div>
+          <span class="panel-badge">REPORT</span>
+        </div>
+
+        <!-- Initial Empty State -->
+        <div id="empty-state" class="empty-box">
+          <div class="empty-graphic">📰</div>
+          <h3>Awaiting News Story</h3>
+          <p>Submit a news headline or article on the left, paste a web article URL, or click one of the preset sample buttons above to run an instant demonstration.</p>
+          
+          <div class="quick-guide">
+            <div class="guide-item">
+              <span>01.</span>
+              <div><strong>Machine Learning Pattern Match:</strong> Cross-evaluates vocabulary against verified news repositories.</div>
+            </div>
+            <div class="guide-item">
+              <span>02.</span>
+              <div><strong>Stylometric Analysis:</strong> Gauges sensationalism, hyperbole, and ALL-CAPS clickbait usage.</div>
+            </div>
+            <div class="guide-item">
+              <span>03.</span>
+              <div><strong>Sourcing & Attribution:</strong> Checks for verifiable direct quotes and institutional sources.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Result State -->
+        <div id="result-state" class="hidden">
+          
+          <!-- Feature 3: Dossier Metadata Bar -->
+          <div class="dossier-meta-bar">
+            <div class="dossier-meta-item">CASE ID: <strong id="case-id-val">NC-2026-X89F</strong></div>
+            <div class="dossier-meta-item">SHA-256: <strong id="sha-val">4cceaeb4...</strong></div>
+            <div class="dossier-meta-item"><span id="timestamp-val">2026-10-25 UTC</span></div>
+          </div>
+
+          <!-- Feature 3: Action Bar (PDF Download & JSON Export) -->
+          <div class="dossier-action-bar">
+            <button type="button" id="print-pdf-btn" class="btn-export btn-export-pdf">
+              <span>📥</span> Download Fact-Check PDF Dossier
+            </button>
+            <button type="button" id="export-json-btn" class="btn-export">
+              <span>📋</span> Export JSON Data
+            </button>
+          </div>
+
+          <!-- Verdict Banner -->
+          <div id="verdict-banner" class="result-card-banner real">
+            <div id="verdict-icon" class="verdict-badge-icon">✓</div>
+            <div class="verdict-info">
+              <span id="verdict-tag" class="verdict-tag">VERIFIED CREDIBLE</span>
+              <h3 id="verdict-title" class="verdict-heading">Matches Legitimate News</h3>
+              <p id="verdict-summary" class="verdict-summary">Text aligns with standard journalistic reporting standards.</p>
+            </div>
+          </div>
+
+          <!-- Credibility Meter Gauge -->
+          <div class="credibility-gauge-card">
+            <div class="gauge-header">
+              <span>Credibility & Reliability Score</span>
+              <strong id="credibility-value" class="gauge-percentage">88%</strong>
+            </div>
+            <div class="bar-track">
+              <div id="credibility-bar" class="bar-fill" style="width: 88%;"></div>
+            </div>
+            <p class="gauge-desc">Calculated using an ensemble of Scikit-Learn TF-IDF classifier, domain trust, and stylometric features.</p>
+          </div>
+
+          <!-- Linguistics Sub-Meters Grid -->
+          <div class="linguistics-grid">
+            <div class="ling-card">
+              <div class="ling-title">Sensationalism</div>
+              <div id="sensational-val" class="ling-value">Low</div>
+              <div class="ling-bar">
+                <div id="sensational-bar" class="ling-fill" style="width: 15%;"></div>
+              </div>
+            </div>
+            <div class="ling-card">
+              <div class="ling-title">Attribution</div>
+              <div id="sourcing-val" class="ling-value">Verified</div>
+              <div class="ling-bar">
+                <div id="sourcing-bar" class="ling-fill" style="width: 85%;"></div>
+              </div>
+            </div>
+            <div class="ling-card">
+              <div class="ling-title">Tone</div>
+              <div id="objectivity-val" class="ling-value">Neutral</div>
+              <div class="ling-bar">
+                <div id="objectivity-bar" class="ling-fill" style="width: 90%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feature 2: Sentence-Level Claim Heatmap -->
+          <div class="heatmap-card">
+            <div class="heatmap-header">
+              <h4>Sentence-Level Claim Heatmap</h4>
+              <div class="heatmap-filters">
+                <button type="button" class="filter-chip active" data-filter="all">All (<span id="count-all">0</span>)</button>
+                <button type="button" class="filter-chip" data-filter="credible">Credible (<span id="count-credible">0</span>)</button>
+                <button type="button" class="filter-chip" data-filter="sensational">Sensational (<span id="count-sensational">0</span>)</button>
+                <button type="button" class="filter-chip" data-filter="unsubstantiated">Unverified (<span id="count-unsub">0</span>)</button>
+              </div>
+            </div>
+            <div id="sentence-stream" class="sentence-stream">
+              <!-- Rendered dynamically -->
+            </div>
+            <div id="sentence-inspector" class="sentence-inspector hidden">
+              <div class="inspector-title">
+                <span id="insp-num">Sentence #1</span>
+                <span id="insp-badge">Attributed Fact</span>
+              </div>
+              <p id="insp-reasons">Reasons detected...</p>
+            </div>
+          </div>
+
+          <!-- Signal Evidence Checklist -->
+          <div class="signals-box">
+            <h4>Detected Stylistic Signals</h4>
+            <ul id="signals-list" class="signal-list">
+              <!-- Dynamically populated -->
+            </ul>
+          </div>
+
+          <!-- Notice & Guidance -->
+          <p id="result-notice" class="verdict-notice"></p>
+
+          <button type="button" id="reset-btn" class="btn-secondary" style="width: 100%;">
+            Verify Another News Story ↻
+          </button>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" class="error-box hidden"></div>
+
+      </aside>
+    </div>
+
+    <!-- Fact-Checking Educational Standards -->
+    <section class="standards-section">
+      <div class="standards-header">
+        <h3>How to Verify News Like a Professional Journalist</h3>
+        <p>Four golden rules used by investigative newsrooms worldwide to fact-check breaking claims.</p>
+      </div>
+
+      <div class="standards-grid">
+        <article class="standard-card">
+          <div class="standard-card-number">01</div>
+          <h4>Trace to the Wire Service</h4>
+          <p>Check if major independent news agencies like Reuters, Associated Press (AP), or Agence France-Presse (AFP) have published the same development.</p>
+        </article>
+
+        <article class="standard-card">
+          <div class="standard-card-number">02</div>
+          <h4>Inspect Direct Quotations</h4>
+          <p>Legitimate journalism explicitly quotes verifiable people by their full names, positions, and institutional affiliations rather than unnamed "sources".</p>
+        </article>
+
+        <article class="standard-card">
+          <div class="standard-card-number">03</div>
+          <h4>Beware Emotional Clickbait</h4>
+          <p>Disinformation often relies on intense emotional triggers like rage, urgency, ALL-CAPS words, and conspiracy tropes to spur shares before critical thought.</p>
+        </article>
+
+        <article class="standard-card">
+          <div class="standard-card-number">04</div>
+          <h4>Check the Date and Primary Data</h4>
+          <p>Misleading stories frequently take authentic photos or old headlines out of context from years prior to fabricate false breaking news narratives.</p>
+        </article>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div>
+      <strong>NewsCheck</strong> · Machine Learning News Credibility Prototype
+    </div>
+    <div>
+      Powered by Scikit-Learn TF-IDF Classifier & NLP Stylometric Feature Extraction
+    </div>
+  </footer>
+
+  <script src="static/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.DS_Store
+
+# Include trained model for zero-setup cloud deployment (5.9 MB)
+!model/news_model.joblib
+
+# Ignore raw data files to keep repository fast and lightweight
+data/*.csv
