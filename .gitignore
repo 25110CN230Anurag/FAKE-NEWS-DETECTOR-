@@ -1,11 +1,25 @@
-.venv/
-__pycache__/
-*.py[cod]
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment Variables & Secrets
 .env
+.env.local
+.env.*.local
+*.env
+
+# Production Build Output
+client/dist/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor & OS files
 .DS_Store
-
-# Include trained model for zero-setup cloud deployment (5.9 MB)
-!model/news_model.joblib
-
-# Ignore raw data files to keep repository fast and lightweight
-data/*.csv
+Thumbs.db
+.vscode/
+.idea/

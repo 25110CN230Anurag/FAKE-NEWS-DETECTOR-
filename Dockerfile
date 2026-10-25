@@ -1,23 +1,36 @@
-# Use official lightweight Python image
-FROM python:3.11-slim
+# ==========================================
+# TruthLens AI — Production Multi-Stage Dockerfile
+# ==========================================
 
-# Set working directory
+# Stage 1: Build Frontend Client
+FROM node:20-alpine AS client-builder
+WORKDIR /app/client
+
+COPY client/package*.json ./
+RUN npm ci
+
+COPY client/ ./
+RUN npm run build
+
+# Stage 2: Production Server Runtime
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Prevent Python from writing .pyc files and enable unbuffered logging
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV NODE_ENV=production
 ENV PORT=5000
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install server dependencies
+COPY server/package*.json ./server/
+RUN cd server && npm ci --omit=dev
 
-# Copy project files
-COPY . .
+# Copy server code
+COPY server/ ./server/
 
-# Expose port
+# Copy compiled frontend from client-builder
+COPY --from=client-builder /app/client/dist ./client/dist
+
+# Expose port (Cloud providers inject $PORT dynamically)
 EXPOSE 5000
 
-# Run with Gunicorn production WSGI server, binding dynamically to $PORT (Render / Cloud Run)
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --threads 4 app:app"]
+# Start server
+CMD ["node", "server/src/index.js"]

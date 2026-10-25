@@ -1,95 +1,191 @@
-# NewsCheck — AI News Credibility & Fact-Checker
+# TruthLens AI — Fake News Detection & Fact-Checking Platform
 
-A professional full-stack NLP news verification engine featuring a trained TF-IDF + Logistic Regression machine learning model, domain trust reputation intelligence, linguistic stylometric feature extraction, interactive sentence-level claim heatmaps, and downloadable fact-check dossiers.
+> **"Don't Believe Every Headline. Verify It."**  
+> *An AI-powered, multi-source evidence intelligence platform engineered to debunk falsehoods and verify news against accredited fact-checks and journalistic coverage.*
 
 ---
 
-## ⚡ Quick Start
+## 🌟 Highlights
 
-### 1. Launch the Web Application
+- **Grounding Over Guesswork**: Never classifies news based merely on sensational tone, grammar, or writing style. Every verdict is grounded in verifiable evidence.
+- **3 Input Verification Modes**:
+  1. **Headline + Summary**: Check manual news headlines, full copy, publisher name, and publication date.
+  2. **Article Link URL**: Server-side URL fetching with strict SSRF defense, Mozilla Readability parsing, and an editable preview card.
+  3. **Quick Claim Check**: Check viral claims, rumours, or news-related questions with one click.
+- **Accredited Fact Check Database**: Integrates directly with the **Google Fact Check Tools API** (`v1alpha1/claims:search`) to surface reviews from accredited IFCN signatories (Snopes, PolitiFact, Reuters Fact Check, AP Fact Check, FactCheck.org).
+- **Multi-Source News Cross-Referencing**: Queries **NewsAPI** and high-reliability live RSS feeds (Reuters, AP, BBC, NPR) to evaluate consensus across global media.
+- **AI Synthesis**: Powered by **Google Gemini 1.5/2.0 Flash** with strict anti-hallucination guardrails and an intelligent rule-based consensus fallback.
+- **5-Tier Standardized Verdict Protocol**:
+  - `Likely True`
+  - `Likely False`
+  - `Misleading / Partly True`
+  - `Conflicting Evidence`
+  - `Unverified` (displayed whenever evidence is insufficient)
+- **Live News Stream**: Real-time categorized news feed with 1-click *"Verify with TruthLens"* feature.
+- **Exportable Dossier**: One-click PDF export, print styling, and copyable JSON dossier.
+- **Hardened Security**: Server-side DNS resolution, rejection of loopback/private RFC1918 CIDRs, link-local metadata protection, rate limiting, and Helmet security headers.
+
+---
+
+## 🏗️ Architecture & Technology Stack
+
+```
+                             ┌────────────────────────────────────────┐
+                             │       TruthLens AI Client (Vite)       │
+                             │  React 18 • TypeScript • Tailwind CSS  │
+                             └──────────────────┬─────────────────────┘
+                                                │ REST / JSON (SSRF-Safe)
+                                                ▼
+                             ┌────────────────────────────────────────┐
+                             │       TruthLens Express Backend        │
+                             │   Node.js • Helmet • Rate-Limiter      │
+                             └───────┬──────────┬──────────┬──────────┘
+                                     │          │          │
+                 ┌───────────────────┘          │          └───────────────────┐
+                 ▼                              ▼                              ▼
+    ┌─────────────────────────┐    ┌─────────────────────────┐    ┌─────────────────────────┐
+    │  Google Fact Check API  │    │  NewsAPI & Live RSS     │    │   Google Gemini Flash   │
+    │  Snopes, PolitiFact,    │    │  Reuters, AP, BBC,      │    │   Deep Evidence         │
+    │  Reuters Fact Check     │    │  Global Wire Feeds      │    │   Synthesis Engine      │
+    └─────────────────────────┘    └─────────────────────────┘    └─────────────────────────┘
+```
+
+### Frontend (`client/`)
+- **React 18** with **TypeScript** and **Vite**
+- **Tailwind CSS** with Dark Navy design system (`#070b14`), electric blue (`#3b82f6`) and violet accents
+- **Lucide React** icons
+- Local persistence for verification history and user API keys
+
+### Backend (`server/`)
+- **Node.js** with **Express** (ES Modules)
+- **Mozilla Readability** & **JSDOM** for clean article body extraction
+- **Cheerio** for OpenGraph/Twitter Cards/JSON-LD metadata and semantic fallbacks
+- **Custom SSRF Validator** enforcing IP pre-resolution and blocking private/link-local ranges
+- **Google Fact Check Tools API** client
+- **NewsAPI** & **Real-time RSS** multi-channel search
+- **Google Gemini Flash** REST integration with structured JSON outputs
+
+---
+
+## 🔒 Security & SSRF Defense
+
+When users submit an article link (Tab B), TruthLens protects the server from Server-Side Request Forgery (SSRF) and DNS rebinding attacks:
+1. **Protocol Check**: Only `http:` and `https:` URLs are accepted.
+2. **Hostname Blocking**: Rejects `localhost`, `.local`, `.internal`, and `.lan`.
+3. **DNS Pre-Resolution**: Resolves hostname via `dns.lookup({ all: true })`.
+4. **IP Range Verification**: Rejects any resolved IP in:
+   - `127.0.0.0/8` (Loopback)
+   - `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (Private RFC 1918)
+   - `169.254.0.0/16` (Link-local & AWS metadata `169.254.169.254`)
+   - `::1`, `fc00::/7`, `fe80::/10` (IPv6 loopback/link-local/ULA)
+5. **Payload Limiting**: Max 5 MB content length and 8.5-second timeout.
+
+---
+
+## 🚀 Quick Start & Installation
+
+### Prerequisites
+- **Node.js**: v18+ (tested on Node v24.19.0)
+- **npm**: v9+
+
+### 1. Clone or Open the Repository
 ```bash
-python app.py
-```
-Open your browser and navigate to:
-```
-http://127.0.0.1:5000
+cd C:\Users\xproo\Desktop\TruthLens-AI
 ```
 
-> **Direct File Preview:** You can also double-click `index.html` in the project root to open the verification desk directly in any browser with instant client-side analysis.
-
----
-
-## 🚀 Advanced Real-World Features (Newly Added)
-
-### 1. 🔗 Article Web Scraper & Domain Trust Engine
-- **Direct Link Verification:** Paste any public article URL (e.g., from BBC, Reuters, NYT, The Onion) and click **"Fetch & Verify Link"**. The engine automatically extracts the headline, byline, publication date, and body paragraphs.
-- **Domain Trust Registry:** Evaluates publishers against a registry of wire services, public broadcasters, reputable journals, satire media, and unvetted conspiracy outlets.
-- **Satire Recognition:** Specifically identifies satire publications (*The Onion*, *The Babylon Bee*, *ClickHole*) as intentional parody rather than classifying them as malicious hoaxes.
-
-### 2. 🟢 Sentence-Level Claim Heatmap & Visual Highlighter
-- **Visual Claim Inspection:** The article body is parsed into individual sentences and color-coded:
-  - 🟢 **Credible / Attributed:** Direct quotes, citations of official institutions, or neutral journalistic verbs (`stated`, `reported`).
-  - 🔴 **Sensational / Clickbait:** Emotional hyperbole, clickbait buzzwords (`BOMBSHELL`, `SHOCKING`), ALL-CAPS words, and punctuation outbursts.
-  - 🟡 **Unsubstantiated Rhetoric:** Sweeping claims without sources or evidentiary backing.
-  - ⚪ **Neutral:** Balanced descriptive context.
-- **Interactive Inspector:** Click or hover over any sentence to view a breakdown of the specific linguistic signals detected.
-- **Filter Chips:** Filter the view to examine only sensational or unverified claims.
-
-### 3. 📥 Downloadable Fact-Check PDF Dossier & JSON Export
-- **One-Click PDF Report:** Generates an official, print-formatted **Intelligence Dossier** complete with:
-  - Unique Case ID (e.g. `NC-2026-3FAA4B05`)
-  - Cryptographic SHA-256 fingerprint of the analyzed text
-  - Official UTC Verification Timestamp
-  - Overall Credibility Score, verdict badge, and sub-metric gauges
-  - Full sentence heatmap findings
-- **JSON Export:** Download machine-readable `.json` data for archiving, investigative reporting, or academic research.
-
----
-
-## 🧠 Core Model & NLP Engine
-
-1. **Wire-Service Leakage Elimination**:
-   - Strips publisher datelines (`WASHINGTON (Reuters) -`) from training data so the model evaluates real-world syntax, attribution, and vocabulary rather than memorizing publisher names.
-2. **Hybrid Credibility Scoring**:
-   - Ensemble of Scikit-Learn TF-IDF classifier (trained on 39,000+ unique articles with 98.9% test accuracy), domain trust score, and 3 stylometric sub-meters:
-     - **Sensationalism Index** (0–100%)
-     - **Attribution & Sourcing Meter** (0–100%)
-     - **Objectivity & Neutral Tone** (0–100%)
-3. **1-Click Verified Demonstration Samples**:
-   - **Real News 1:** Federal Reserve Interest Rate Decision *(Economy)*
-   - **Real News 2:** James Webb Space Telescope Galaxy Discovery *(Science)*
-   - **Satire Sample:** The Onion Ancient Civilization Parody *(Satire)*
-   - **Fake News 1:** Secret Tap Water Mind-Control Cabal *(Conspiracy)*
-   - **Fake News 2:** Viral Underground Celebrity Island Party Hoax *(Clickbait)*
-
----
-
-## 🛠️ Project Structure
-
-```text
-fake-news-detector/
-├── app.py              # Flask API, URL scraper, sentence analyzer, domain registry
-├── train_model.py      # Cleans dataset, trains model, exports news_model.joblib
-├── requirements.txt    # Python dependencies (Flask, pandas, scikit-learn, requests, bs4)
-├── index.html          # Standalone client preview (works without server)
-├── README.md           # Documentation
-├── data/
-│   ├── Fake.csv        # Extracted Kaggle fake news dataset (23 MB)
-│   └── True.csv        # Extracted Kaggle real news dataset (18 MB)
-├── model/
-│   └── news_model.joblib  # Trained, leakage-free Scikit-Learn model
-├── templates/
-│   └── index.html      # Flask Jinja2 web template with heatmap & PDF export
-└── static/
-    ├── style.css       # Newsroom CSS design system & @media print styles
-    └── script.js       # Dynamic UI interactions, sentence heatmap & export tools
-```
-
----
-
-## 🔁 Re-training the Model (Optional)
-
-The pre-trained model `model/news_model.joblib` is already trained and ready. To retrain:
+### 2. Install Dependencies
 ```bash
-python train_model.py
+# Install root, backend, and frontend dependencies
+npm run install:all
 ```
+
+### 3. Configure API Keys (Optional but Recommended)
+Copy `.env.example` in `server/` to `server/.env`:
+```bash
+cd server
+cp .env.example .env
+```
+Open `server/.env` and insert your keys:
+```ini
+PORT=5000
+NODE_ENV=development
+
+# 1. Google Gemini Key (Free at https://aistudio.google.com/)
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# 2. Google Fact Check Key (Free; shares key with Google Cloud / Gemini)
+GOOGLE_FACTCHECK_API_KEY=your_google_factcheck_api_key_here
+
+# 3. NewsAPI Key (Free developer tier at https://newsapi.org/)
+# If empty, TruthLens automatically falls back to free live RSS feeds!
+NEWS_API_KEY=your_news_api_key_here
+```
+> *Note: You can also enter API keys directly into the web UI via the **Settings** modal, where keys are saved in local storage!*
+
+### 4. Run the Full Application
+```bash
+# From the project root:
+npm run dev
+```
+This boots both services concurrently:
+- **Client (Frontend)**: [http://localhost:5173](http://localhost:5173)
+- **Server (Backend API)**: [http://localhost:5000](http://localhost:5000)
+- **Server Health Check**: [http://localhost:5000/health](http://localhost:5000/health)
+
+---
+
+## 🧪 Testing
+
+TruthLens AI includes a full test suite verifying SSRF prevention, rating normalization, keyword extraction, and evidence consensus logic:
+
+```bash
+npm run test
+```
+**Test Results:**
+```
+--- TruthLens AI Backend Test Suite ---
+
+1. SSRF Defense & URL Validation Tests:
+  ✓ Should block localhost
+  ✓ Should block 127.0.0.1 loopback
+  ✓ Should block AWS cloud metadata link-local IP 169.254.169.254
+  ✓ Should block private RFC1918 subnet 192.168.x.x
+  ✓ Should reject non-HTTP protocols (e.g. ftp://)
+  ✓ Should allow safe public URL (wikipedia.org)
+
+2. Fact-Checker Rating Normalizer Tests:
+  ✓ Normalizes "False" and "Pants on Fire" to Likely False
+  ✓ Normalizes "True" and "Correct" to Likely True
+  ✓ Normalizes "Mostly False" and "Misleading" to Misleading / Partly True
+  ✓ Normalizes unrated/unknown to Unverified
+
+3. Keyword Extraction Tests:
+  ✓ Strips stopwords and extracts primary entities
+
+4. Grounding & Evidence Engine Consensus Tests:
+  ✓ Forces verdict to Likely False when authoritative debunk exists
+  ✓ Assigns "Unverified" when no fact checks and no news coverage exist (anti-hallucination)
+
+5. Live News Feed Tests:
+  ✓ Live news service successfully retrieves real-time headlines
+
+Tests Completed: 14 passed, 0 failed
+```
+
+---
+
+## 📋 Standardized Verdict Reference
+
+| Verdict | Meaning | Grounding Requirement |
+| :--- | :--- | :--- |
+| **Likely True** | Verified factual claims | Multiple credible primary wire services or accredited fact-checkers confirm the claim with documentation. |
+| **Likely False** | Fabricated or debunked | Authoritative debunk from Snopes, PolitiFact, Reuters, or primary records showing falsification. |
+| **Misleading / Partly True** | Exaggerated or out of context | References a real event or statistic, but quotes figures inaccurately, omits crucial caveats, or conflates separate events. |
+| **Conflicting Evidence** | Disputed reporting | Reputable wire agencies or official entities publish mutually exclusive accounts of the story. |
+| **Unverified** | Insufficient documentation | No matching fact checks or credible news reports exist. TruthLens refuses to hallucinate a verdict. |
+
+---
+
+## 🎓 Academic Capstone Disclaimer
+
+**TruthLens AI** is developed as a senior college engineering project in full-stack web engineering, cybersecurity (SSRF mitigation), and applied AI for information verification. While TruthLens queries verified records from accredited IFCN signatories via the Google Fact Check Tools API, it is **not an official news agency, judicial body, or legal authority**.
