@@ -1,0 +1,64 @@
+/* Custom CSS styles for Veritas */
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #090D16;
+}
+::-webkit-scrollbar-thumb {
+    background: #1F2937;
+    border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #374151;
+}
+
+/* Tab active state styles */
+.tab-btn.active {
+    background-color: #2563EB !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.35);
+}
+
+/* Smooth transitions */
+.transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glassmorphism accents */
+.glass-panel {
+    background: rgba(17, 24, 39, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Print styles for exportable verification reports */
+@media print {
+    body {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+    }
+    header, footer, #tab-url-btn, #tab-text-btn, #url-input-section, #text-input-section, #analyze-btn, #samples-bench, .no-print {
+        display: none !important;
+    }
+    #results-section {
+        display: block !important;
+        color: #000000 !important;
+    }
+    .bg-cardbg, .bg-gray-900, .bg-darkbg {
+        background-color: #FFFFFF !important;
+        border-color: #E5E7EB !important;
+        color: #111827 !important;
+        box-shadow: none !important;
+    }
+    .text-white, .text-gray-200, .text-gray-300 {
+        color: #111827 !important;
+    }
+    .text-gray-400, .text-gray-500 {
+        color: #4B5563 !important;
+    }
+}

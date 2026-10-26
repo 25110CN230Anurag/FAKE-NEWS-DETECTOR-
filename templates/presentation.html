@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VERITAS Architecture Deck — Project Presentation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#080C14',
+                        cardbg: '#0F1626',
+                        cardborder: '#1E293B',
+                        accent: '#3B82F6'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        .slide { display: none; }
+        .slide.active { display: flex; animation: slideFade 0.35s ease-out forwards; }
+        @keyframes slideFade {
+            from { opacity: 0; transform: translateY(10px) scale(0.99); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-darkbg text-slate-100 font-sans min-h-screen flex flex-col justify-between selection:bg-blue-600 selection:text-white">
+
+    <!-- Top Presentation Header Bar -->
+    <header class="px-6 py-4 border-b border-gray-800/80 bg-darkbg/90 backdrop-blur flex items-center justify-between z-30">
+        <div class="flex items-center gap-3">
+            <a href="/" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800/80 hover:bg-gray-700 text-gray-300 text-xs font-medium border border-gray-700/60 transition-all">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                <span>Back to App</span>
+            </a>
+            <span class="text-xs text-gray-500">|</span>
+            <span class="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="shield-check" class="w-4 h-4 text-blue-400"></i>
+                VERITAS Architecture & Engineering Deck
+            </span>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <span id="slide-indicator" class="text-xs font-mono font-bold text-blue-400 px-3 py-1 rounded bg-blue-500/10 border border-blue-500/20">
+                Slide 1 / 8
+            </span>
+            <button onclick="toggleFullScreen()" class="p-1.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs transition-all" title="Toggle Fullscreen (F)">
+                <i data-lucide="maximize" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Slides Viewport Container -->
+    <main class="flex-1 flex items-center justify-center p-4 sm:p-8 max-w-6xl mx-auto w-full">
+
+        <!-- SLIDE 1: Title & Overview -->
+        <section class="slide active flex-col justify-center space-y-6 w-full text-center">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-semibold uppercase tracking-wider mx-auto">
+                <i data-lucide="sparkles" class="w-4 h-4 text-blue-400"></i>
+                Complete Project Presentation
+            </div>
+            <h1 class="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-tight">
+                VERITAS <br>
+                <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400">
+                    AI News Veracity & Fact Verification Engine
+                </span>
+            </h1>
+            <p class="text-gray-300 max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
+                A multi-layered machine learning and real-time corroboration platform designed to detect disinformation, calculate exact truthfulness percentages, and verify claims from any global or national news webpage.
+            </p>
+            <div class="pt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-gray-400">
+                <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800">
+                    <i data-lucide="cpu" class="w-4 h-4 text-blue-400"></i> Calibrated ML Classifiers
+                </span>
+                <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800">
+                    <i data-lucide="radio" class="w-4 h-4 text-emerald-400"></i> Real-Time News Cross-Referencing
+                </span>
+                <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800">
+                    <i data-lucide="percent" class="w-4 h-4 text-purple-400"></i> Claim-by-Claim Truth Metrics
+                </span>
+            </div>
+        </section>
+
+        <!-- SLIDE 2: Problem Statement -->
+        <section class="slide flex-col justify-center space-y-6 w-full">
+            <div class="space-y-2">
+                <span class="text-xs font-bold text-rose-400 uppercase tracking-wider">The Challenge</span>
+                <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Why Conventional Fake News Detectors Fail</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div class="bg-cardbg border border-cardborder p-6 rounded-2xl space-y-3">
+                    <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                        <i data-lucide="binary" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-white">Binary "True/False" is Broken</h3>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        Real news isn't black-and-white. Most viral misinformation is "hybrid" — 70% genuine context wrapped around 30% fabricated or distorted claims. Users need to know <em>how much</em> is true.
+                    </p>
+                </div>
+
+                <div class="bg-cardbg border border-cardborder p-6 rounded-2xl space-y-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                        <i data-lucide="database-zap" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-white">Static Models Go Out of Date</h3>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        A model trained only on historical text cannot verify breaking news happening right now. Without real-time news wire verification, models guess purely on writing style.
+                    </p>
+                </div>
+
+                <div class="bg-cardbg border border-cardborder p-6 rounded-2xl space-y-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                        <i data-lucide="globe-2" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-white">Web Scraping Friction</h3>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        Users encounter articles across diverse websites like Times of India, NDTV, and international blogs. Systems must automatically scrape, parse, and isolate core claims cleanly.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 3: System Architecture -->
+        <section class="slide flex-col justify-center space-y-6 w-full">
+            <div class="space-y-2">
+                <span class="text-xs font-bold text-blue-400 uppercase tracking-wider">System Pipeline</span>
+                <h2 class="text-3xl sm:text-4xl font-extrabold text-white">End-to-End Multi-Layered Architecture</h2>
+            </div>
+            
+            <div class="bg-cardbg border border-cardborder p-6 rounded-2xl space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-center">
+                    <div class="bg-gray-900/90 border border-gray-800 p-4 rounded-xl space-y-2">
+                        <div class="w-8 h-8 mx-auto rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold text-xs">1</div>
+                        <h4 class="text-xs font-bold text-white">Input & Ingestion</h4>
+                        <p class="text-[11px] text-gray-400">URL Scraper (TOI, NDTV, BBC) or raw text parser with domain trust rating.</p>
+                    </div>
+
+                    <div class="bg-gray-900/90 border border-gray-800 p-4 rounded-xl space-y-2">
+                        <div class="w-8 h-8 mx-auto rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-xs">2</div>
+                        <h4 class="text-xs font-bold text-white">Decomposition</h4>
+                        <p class="text-[11px] text-gray-400">Sentence boundary claim extraction isolating factual assertions.</p>
+                    </div>
+
+                    <div class="bg-gray-900/90 border border-gray-800 p-4 rounded-xl space-y-2">
+                        <div class="w-8 h-8 mx-auto rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-xs">3</div>
+                        <h4 class="text-xs font-bold text-white">Dual Verification</h4>
+                        <p class="text-[11px] text-gray-400">Calibrated ML stylometrics + real-time search corroboration & debunk database.</p>
+                    </div>
+
+                    <div class="bg-gray-900/90 border border-gray-800 p-4 rounded-xl space-y-2">
+                        <div class="w-8 h-8 mx-auto rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-xs">4</div>
+                        <h4 class="text-xs font-bold text-white">Veracity Metric</h4>
+                        <p class="text-[11px] text-gray-400">Weighted Truth Percentage (0-100%) and itemized claim report.</p>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-xl bg-gray-900/40 border border-gray-800/80 text-xs text-gray-400 font-mono">
+                    <span class="text-blue-400 font-bold">[Data Flow]:</span> Target Article &rarr; Scraper &rarr; NLP Claim Splitter &rarr; [ML TF-IDF Model &amp; Live News Cross-Search] &rarr; Bayesian Veracity Synthesizer &rarr; Interactive Dashboard
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: Technology Stack -->
+        <section class="slide flex-col justify-center space-y-6 w-full">
+            <div class="space-y-2">
+                <span class="text-xs font-bold text-purple-400 uppercase tracking-wider">Engineering Blueprint</span>
+                <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Technology Stack & Libraries</h2>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="bg-cardbg border border-cardborder p-5 rounded-xl space-y-2">
+                    <div class="flex items-center gap-2 text-white font-bold text-sm">
+                        <i data-lucide="server" class="w-4 h-4 text-blue-400"></i> Backend & APIs
+                    </div>
+                    <ul class="text-xs text-gray-400 space-y-1.5 list-disc list-inside">
+                        <li><strong class="text-gray-200">Python 3.14</strong>: High-efficiency execution runtime</li>
+                        <li><strong class="text-gray-200">Flask 3.1</strong>: Lightweight, asynchronous REST API</li>
+                        <li><strong class="text-gray-200">Requests & BeautifulSoup4</strong>: Resilient news scraping</li>
+                    </ul>
+                </div>
+
+                <div class="bg-cardbg border border-cardborder p-5 rounded-xl space-y-2">
+                    <div class="flex items-center gap-2 text-white font-bold text-sm">
+                        <i data-lucide="cpu" class="w-4 h-4 text-emerald-400"></i> Machine Learning & NLP
+                    </div>
+                    <ul class="text-xs text-gray-400 space-y-1.5 list-disc list-inside">
+                        <li><strong class="text-gray-200">Scikit-Learn 1.9</strong>: Calibrated classifiers</li>
+                        <li><strong class="text-gray-200">TF-IDF N-Grams (1-2)</strong>: Semantic lexical modeling</li>
+                        <li><strong class="text-gray-200">Joblib</strong>: High-speed serialization</li>
+                    </ul>
+                </div>
+
+                <div class="bg-cardbg border border-cardborder p-5 rounded-xl space-y-2">
+                    <div class="flex items-center gap-2 text-white font-bold text-sm">
+                        <i data-lucide="layout" class="w-4 h-4 text-purple-400"></i> Modern Frontend UI
+                    </div>
+                    <ul class="text-xs text-gray-400 space-y-1.5 list-disc list-inside">
+                        <li><strong class="text-gray-200">Tailwind CSS (Dark Mode)</strong>: Glassmorphism aesthetics</li>
+                        <li><strong class="text-gray-200">Lucide Icons</strong>: Vector iconography</li>
+                        <li><strong class="text-gray-200">SVG Animated Gauges</strong>: Dynamic radial counters</li>
+                    </ul>
+                </div>
+
+                <div class="bg-cardbg border border-cardborder p-5 rounded-xl space-y-2">
+                    <div class="flex items-center gap-2 text-white font-bold text-sm">
+                        <i data-lucide="radio" class="w-4 h-4 text-amber-400"></i> Live Verification
+                    </div>
+                    <ul class="text-xs text-gray-400 space-y-1.5 list-disc list-inside">
+                        <li><strong class="text-gray-200">Google News RSS Feed</strong>: Zero-key real-time search</li>
+                        <li><strong class="text-gray-200">Fact-Check Registry</strong>: AltNews, Snopes, PIB, BoomLive</li>
+                        <li><strong class="text-gray-200">Domain Reputation Matrix</strong>: NDTV, TOI, Reuters ratings</li>
+                    </ul>
+                </div>
+
+                <div class="bg-cardbg border border-cardborder p-5 rounded-xl space-y-2">
+                    <div class="flex items-center gap-2 text-white font-bold text-sm">
+                        <i data-lucide="scan" class="w-4 h-4 text-teal-400"></i> Stylometric Forensics
+                    </div>
+                    <ul class="text-xs text-gray-400 space-y-1.5 list-disc list-inside">
+                        <li><strong class="text-gray-200">Clickbait & Caps Ratio</strong>: Sensationalism detectors</li>
+                        <li><strong class="text-gray-200">Journalistic Attribution</strong>: Byline & quotes index</li>
+                        <li><strong class="text-gray-200">Urgency Detection</strong>: WhatsApp forward triggers</li>
+                    </ul>
+                </div>
+
+                <div class="bg-cardbg border border-cardborder p-5 rounded-xl space-y-2">
+                    <div class="flex items-center gap-2 text-white font-bold text-sm">
+                        <i data-lucide="presentation" class="w-4 h-4 text-indigo-400"></i> Presentation Mode
+                    </div>
+                    <ul class="text-xs text-gray-400 space-y-1.5 list-disc list-inside">
+                        <li><strong class="text-gray-200">Interactive Slide Engine</strong>: Built into the web app</li>
+                        <li><strong class="text-gray-200">Keyboard Shortcuts</strong>: Fullscreen & navigation</li>
+                        <li><strong class="text-gray-200">Live Demonstrations</strong>: 1-click test bench</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 5: Machine Learning Core -->
+        <section class="slide flex-col justify-center space-y-6 w-full">
+            <div class="space-y-2">
+                <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Algorithmic Foundation</span>
+                <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Machine Learning & Stylometric Core</h2>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="bg-cardbg border border-cardborder p-6 rounded-2xl space-y-3">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <i data-lucide="binary" class="w-4 h-4 text-blue-400"></i>
+                        TF-IDF & Calibrated Logistic / Passive-Aggressive
+                    </h3>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        Converts raw text into an n-gram feature space (1–2 tokens) with sublinear term-frequency scaling. 
+                        A Calibrated Classifier produces continuous, well-calibrated posterior probabilities rather than brittle step-function decisions.
+                    </p>
+                    <div class="bg-gray-900 p-3 rounded-lg text-xs font-mono text-gray-300">
+                        X = TfidfVectorizer(ngram=(1,2), sublinear_tf=True)<br>
+                        clf = CalibratedClassifierCV(LogisticRegression())
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-cardborder p-6 rounded-2xl space-y-3">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <i data-lucide="flame" class="w-4 h-4 text-amber-400"></i>
+                        Stylometric & Sensationalism Forensics
+                    </h3>
+                    <p class="text-xs text-gray-400 leading-relaxed">
+                        Quantifies linguistic red flags that machine learning alone might miss:
+                    </p>
+                    <ul class="text-xs text-gray-400 space-y-1 list-disc list-inside">
+                        <li><strong class="text-gray-300">Sensationalism Score:</strong> "SHOCKING", "MIRACLE", "EXPOSED"</li>
+                        <li><strong class="text-gray-300">Capitalization Ratio:</strong> Excessive ALL-CAPS words</li>
+                        <li><strong class="text-gray-300">Punctuation Surge:</strong> Multiple exclamation and question marks</li>
+                        <li><strong class="text-gray-300">Attribution Index:</strong> "according to", "spokesperson stated"</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 6: Real-Time Fact Checking -->
+        <section class="slide flex-col justify-center space-y-6 w-full">
+            <div class="space-y-2">
+                <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">Live Corroboration</span>
+                <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Live News Cross-Referencing & Debunk Matching</h2>
+            </div>
+            
+            <div class="bg-cardbg border border-cardborder p-6 rounded-2xl space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-gray-900/80 p-4 rounded-xl border border-gray-800 space-y-2">
+                        <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i data-lucide="split" class="w-4 h-4 text-blue-400"></i> Atomic Claim Splitting
+                        </h4>
+                        <p class="text-[11px] text-gray-400">
+                            Segments long articles into discrete assertions. Each claim is evaluated individually rather than scoring the article as an inseparable blob.
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-900/80 p-4 rounded-xl border border-gray-800 space-y-2">
+                        <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i data-lucide="rss" class="w-4 h-4 text-emerald-400"></i> Zero-Key News Search
+                        </h4>
+                        <p class="text-[11px] text-gray-400">
+                            Queries Google News RSS dynamically for contemporaneous coverage across NDTV, Times of India, The Hindu, and Reuters.
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-900/80 p-4 rounded-xl border border-gray-800 space-y-2">
+                        <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i data-lucide="shield-alert" class="w-4 h-4 text-rose-400"></i> Debunk Signature Registry
+                        </h4>
+                        <p class="text-[11px] text-gray-400">
+                            Instant matching against known viral scams (GPS in 2000 note, UNESCO anthem, lemon cancer cure) citing official debunks.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 shrink-0"></i>
+                    <span>Allows Veritas to verify breaking news in real time without waiting for retraining or paying expensive third-party API fees!</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 7: Mathematical Formula -->
+        <section class="slide flex-col justify-center space-y-6 w-full">
+            <div class="space-y-2">
+                <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Veracity Metric Formulation</span>
+                <h2 class="text-3xl sm:text-4xl font-extrabold text-white">How Truth Percentage is Calculated</h2>
+            </div>
+            
+            <div class="bg-cardbg border border-cardborder p-6 rounded-2xl space-y-5">
+                <div class="text-center p-4 bg-gray-900/90 rounded-xl border border-gray-800 font-mono text-sm sm:text-base text-blue-300">
+                    Truth % = (0.35 &times; Claims_Ratio) + (0.30 &times; ML_Prob) + (0.20 &times; Domain_Trust) + (0.15 &times; Live_Corroboration)
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-800">
+                        <span class="font-bold text-blue-400 block">35% Claims Truth Ratio</span>
+                        <p class="text-gray-400 text-[11px] mt-1">Mean truth score across all extracted atomic factual statements.</p>
+                    </div>
+                    <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-800">
+                        <span class="font-bold text-emerald-400 block">30% ML Inference</span>
+                        <p class="text-gray-400 text-[11px] mt-1">N-gram text stylometry and deception probability.</p>
+                    </div>
+                    <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-800">
+                        <span class="font-bold text-purple-400 block">20% Domain Reputation</span>
+                        <p class="text-gray-400 text-[11px] mt-1">Pre-indexed authority ratings for NDTV, TOI, BBC vs unverified domains.</p>
+                    </div>
+                    <div class="bg-gray-900/60 p-3 rounded-lg border border-gray-800">
+                        <span class="font-bold text-amber-400 block">15% Live Corroboration</span>
+                        <p class="text-gray-400 text-[11px] mt-1">Presence of independent media reports confirming or debunking.</p>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300 flex items-center gap-2">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
+                    <span><strong>Critical Debunk Override:</strong> If any single claim matches an accredited hoax or fact-checker debunk, the score is capped at &le; 25%.</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 8: Summary & Roadmap -->
+        <section class="slide flex-col justify-center space-y-6 w-full text-center">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mx-auto">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                Project Status & Vision
+            </div>
+            <h2 class="text-3xl sm:text-5xl font-extrabold text-white">
+                Complete, Production-Ready & Extensible
+            </h2>
+            <p class="text-gray-300 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
+                Veritas is now fully functional, running on local hardware, capable of ingesting news URLs from any media house, scoring veracity percentages, and providing claim-level transparency.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto text-left pt-2">
+                <div class="bg-cardbg border border-cardborder p-4 rounded-xl space-y-1.5">
+                    <span class="text-xs font-bold text-blue-400">Roadmap Phase 1</span>
+                    <h4 class="text-sm font-bold text-white">Browser Extension</h4>
+                    <p class="text-[11px] text-gray-400">Direct 1-click veracity badge overlay while browsing NDTV, TOI, or Twitter.</p>
+                </div>
+                <div class="bg-cardbg border border-cardborder p-4 rounded-xl space-y-1.5">
+                    <span class="text-xs font-bold text-purple-400">Roadmap Phase 2</span>
+                    <h4 class="text-sm font-bold text-white">Multimodal Deepfakes</h4>
+                    <p class="text-[11px] text-gray-400">Image & audio forensics to detect AI-generated video and cloned voices.</p>
+                </div>
+                <div class="bg-cardbg border border-cardborder p-4 rounded-xl space-y-1.5">
+                    <span class="text-xs font-bold text-emerald-400">Roadmap Phase 3</span>
+                    <h4 class="text-sm font-bold text-white">WhatsApp Bot</h4>
+                    <p class="text-[11px] text-gray-400">Forward any viral WhatsApp message to get an automated truth percentage card.</p>
+                </div>
+            </div>
+
+            <div class="pt-4">
+                <a href="/" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-500/25 transition-all">
+                    <i data-lucide="play" class="w-4 h-4"></i>
+                    <span>Launch Veritas Web App Now</span>
+                </a>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Presentation Slide Navigation Controls -->
+    <footer class="px-6 py-4 border-t border-gray-800/80 bg-darkbg/90 backdrop-blur flex items-center justify-between z-30">
+        <div class="flex items-center gap-2">
+            <button onclick="prevSlide()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium border border-gray-700/60 transition-all">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                <span>Previous</span>
+            </button>
+            <button onclick="nextSlide()" class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 transition-all">
+                <span>Next Slide</span>
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Slide Dots -->
+        <div class="hidden sm:flex items-center gap-1.5" id="dots-container">
+            <!-- Dynamically populated -->
+        </div>
+
+        <div class="text-[11px] text-gray-500 hidden md:block">
+            Use <kbd class="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700">&larr;</kbd> <kbd class="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700">&rarr;</kbd> or <kbd class="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700">Space</kbd> to navigate
+        </div>
+    </footer>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+        let currentSlide = 0;
+
+        function updateSlideUI() {
+            slides.forEach((s, idx) => {
+                s.classList.toggle('active', idx === currentSlide);
+            });
+            document.getElementById('slide-indicator').textContent = `Slide ${currentSlide + 1} / ${totalSlides}`;
+
+            // Update dots
+            const dots = document.querySelectorAll('.slide-dot');
+            dots.forEach((dot, idx) => {
+                dot.className = `slide-dot w-2 h-2 rounded-full transition-all cursor-pointer ${
+                    idx === currentSlide ? 'bg-blue-500 w-5' : 'bg-gray-700 hover:bg-gray-500'
+                }`;
+            });
+
+            lucide.createIcons();
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlideUI();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlideUI();
+            }
+        }
+
+        function goToSlide(idx) {
+            currentSlide = idx;
+            updateSlideUI();
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // Initialize dots
+        const dotsContainer = document.getElementById('dots-container');
+        for (let i = 0; i < totalSlides; i++) {
+            const dot = document.createElement('button');
+            dot.className = 'slide-dot';
+            dot.onclick = () => goToSlide(i);
+            dotsContainer.appendChild(dot);
+        }
+
+        // Keyboard navigation
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                prevSlide();
+            } else if (e.key.toLowerCase() === 'f') {
+                toggleFullScreen();
+            }
+        });
+
+        updateSlideUI();
+    </script>
+</body>
+</html>

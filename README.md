@@ -1,191 +1,230 @@
-# TruthLens AI — Fake News Detection & Fact-Checking Platform
+# 🛡️ VERITAS — AI News Veracity & Real-Time Fact Verification Engine
 
-> **"Don't Believe Every Headline. Verify It."**  
-> *An AI-powered, multi-source evidence intelligence platform engineered to debunk falsehoods and verify news against accredited fact-checks and journalistic coverage.*
-
----
-
-## 🌟 Highlights
-
-- **Grounding Over Guesswork**: Never classifies news based merely on sensational tone, grammar, or writing style. Every verdict is grounded in verifiable evidence.
-- **3 Input Verification Modes**:
-  1. **Headline + Summary**: Check manual news headlines, full copy, publisher name, and publication date.
-  2. **Article Link URL**: Server-side URL fetching with strict SSRF defense, Mozilla Readability parsing, and an editable preview card.
-  3. **Quick Claim Check**: Check viral claims, rumours, or news-related questions with one click.
-- **Accredited Fact Check Database**: Integrates directly with the **Google Fact Check Tools API** (`v1alpha1/claims:search`) to surface reviews from accredited IFCN signatories (Snopes, PolitiFact, Reuters Fact Check, AP Fact Check, FactCheck.org).
-- **Multi-Source News Cross-Referencing**: Queries **NewsAPI** and high-reliability live RSS feeds (Reuters, AP, BBC, NPR) to evaluate consensus across global media.
-- **AI Synthesis**: Powered by **Google Gemini 1.5/2.0 Flash** with strict anti-hallucination guardrails and an intelligent rule-based consensus fallback.
-- **5-Tier Standardized Verdict Protocol**:
-  - `Likely True`
-  - `Likely False`
-  - `Misleading / Partly True`
-  - `Conflicting Evidence`
-  - `Unverified` (displayed whenever evidence is insufficient)
-- **Live News Stream**: Real-time categorized news feed with 1-click *"Verify with TruthLens"* feature.
-- **Exportable Dossier**: One-click PDF export, print styling, and copyable JSON dossier.
-- **Hardened Security**: Server-side DNS resolution, rejection of loopback/private RFC1918 CIDRs, link-local metadata protection, rate limiting, and Helmet security headers.
+> **Detect whether news is True or False, determine the exact percentage of truthfulness, and break down atomic claims from any web page (Times of India, NDTV, BBC, Reuters) or raw text.**
 
 ---
 
-## 🏗️ Architecture & Technology Stack
+## 🌟 Overview & Key Features
+
+**Veritas** is an end-to-end, multi-layered fake news detection platform. Unlike conventional binary classifiers that simply spit out a rigid "True" or "False", Veritas answers **"How much of this article is true?"** by providing an exact **Veracity Percentage (0% to 100%)**, itemizing every factual statement, and cross-referencing live news feeds in real time.
+
+### 🚀 Highlights:
+1. **Any Webpage URL Scraper**:
+   - Paste any article link from **The Times of India**, **NDTV**, **The Hindu**, **Indian Express**, **BBC**, **Reuters**, or independent blogs.
+   - Automatically cleans noise (ads, scripts, tracking) and extracts headline, author, publish date, and readable body text.
+2. **Atomic Claim Extraction & Itemized Breakdown**:
+   - Decomposes long articles into atomic declarative assertions.
+   - Rates each claim independently (✅ *Verified True*, ⚠️ *Misleading / Mixed*, ❌ *Fabricated / Debunked*, 🔍 *Unverified*) with forensic reasoning.
+3. **Calibrated Machine Learning Engine**:
+   - Powered by **Scikit-Learn**, **TF-IDF N-Gram Vectorizers (1–2 grams)**, and **Calibrated Logistic / Passive-Aggressive Classifiers**.
+   - Computes continuous posterior probability of journalistic authenticity.
+4. **Real-Time Cross-Source Corroboration**:
+   - Live query cross-referencing against Google News RSS feeds to check if reputable wire services (NDTV, TOI, Reuters, ANI, PTI) covered the event.
+   - **Zero external paid API keys required** — runs out of the box!
+5. **Debunk Signature Matching**:
+   - Built-in signatures of widespread viral hoaxes (e.g. *GPS chip in Rs 2000 note*, *UNESCO best anthem*, *Lemon & baking soda cancer cure*, *5G radiation spread*, *WhatsApp red tick surveillance*), citing official debunks from **PIB Fact Check**, **AltNews**, **Snopes**, and **WHO**.
+6. **Stylometric & Linguistic Forensics**:
+   - Quantifies sensationalism, clickbait index, excessive ALL-CAPS text, urgency phrases (*"Forward to 10 groups before midnight"*), and journalistic attribution markers (*"according to official statement"*).
+7. **Interactive Project Presentation Deck**:
+   - Built directly into the web application at `/presentation` with keyboard navigation, presenter mode, and architecture diagrams.
+
+---
+
+## 📐 Mathematical Veracity Formula
+
+Veritas calculates a weighted composite **Veracity Percentage ($V$)**:
+
+$$V = \Big( 0.35 \times C_{\text{ratio}} + 0.30 \times M_{\text{prob}} + 0.20 \times D_{\text{trust}} + 0.15 \times S_{\text{corrob}} \Big)$$
+
+Where:
+- **$C_{\text{ratio}}$** = Mean truth score across all extracted atomic claims ($0 - 100\%$)
+- **$M_{\text{prob}}$** = Calibrated Machine Learning authenticity probability ($0 - 100\%$)
+- **$D_{\text{trust}}$** = Domain / Publisher Authority rating (e.g. *NDTV* = 92%, *TOI* = 90%, *PIB* = 98%, unknown blog = 55%, `.xyz`/`.top` = 25%)
+- **$S_{\text{corrob}}$** = Real-time news wire corroboration score ($0 - 100\%$)
+
+> ⚠️ **Critical Debunk Override**: If any extracted claim matches an accredited hoax or fact-checker debunk, the overall score is capped at $\le 18\%$, assigning a **FABRICATED / FAKE NEWS** verdict.
+
+### Veracity Tiers:
+| Veracity Score | Verdict Classification | Description |
+| :---: | :---: | :--- |
+| **82% – 100%** | 🟢 **VERIFIED AUTHENTIC** | Backed by credible sources, reputable publisher, objective tone |
+| **65% – 81%** | 🔷 **MOSTLY ACCURATE** | Largely factual, minor unverified claims or secondary details |
+| **45% – 64%** | 🟡 **MIXED / UNCONFIRMED** | Mixture of accurate context and unsubstantiated claims |
+| **25% – 44%** | 🟠 **QUESTIONABLE / MISLEADING** | High sensationalism, emotional bias, uncorroborated assertions |
+| **0% – 24%** | 🔴 **FABRICATED / FAKE NEWS** | Disinformation hoax, phishing scam, or debunked fabrication |
+
+---
+
+## 🏗️ System Architecture
 
 ```
-                             ┌────────────────────────────────────────┐
-                             │       TruthLens AI Client (Vite)       │
-                             │  React 18 • TypeScript • Tailwind CSS  │
-                             └──────────────────┬─────────────────────┘
-                                                │ REST / JSON (SSRF-Safe)
-                                                ▼
-                             ┌────────────────────────────────────────┐
-                             │       TruthLens Express Backend        │
-                             │   Node.js • Helmet • Rate-Limiter      │
-                             └───────┬──────────┬──────────┬──────────┘
-                                     │          │          │
-                 ┌───────────────────┘          │          └───────────────────┐
-                 ▼                              ▼                              ▼
-    ┌─────────────────────────┐    ┌─────────────────────────┐    ┌─────────────────────────┐
-    │  Google Fact Check API  │    │  NewsAPI & Live RSS     │    │   Google Gemini Flash   │
-    │  Snopes, PolitiFact,    │    │  Reuters, AP, BBC,      │    │   Deep Evidence         │
-    │  Reuters Fact Check     │    │  Global Wire Feeds      │    │   Synthesis Engine      │
-    └─────────────────────────┘    └─────────────────────────┘    └─────────────────────────┘
+[ User Input: News URL or Raw Text ]
+                   │
+                   ▼
+       ┌────────────────────────┐
+       │   Veritas Web Scraper  │ ──► [ Domain Reputation Matrix ]
+       │ (TOI, NDTV, BBC, etc.) │     (NDTV: 92%, TOI: 90%, etc.)
+       └───────────┬────────────┘
+                   │
+                   ▼
+       ┌────────────────────────┐
+       │   Claim Decomposition  │ ──► [ Isolates Atomic Assertions ]
+       └───────────┬────────────┘
+                   │
+         ┌─────────┴─────────┐
+         ▼                   ▼
+┌──────────────────┐ ┌──────────────────────────────────────┐
+│  ML Stylometrics │ │ Real-Time Corroboration Engine       │
+│  - TF-IDF N-Gram │ │ - Google News Live Wire Query        │
+│  - Passive-Aggr. │ │ - Fact-Check Debunk Signatures       │
+│  - Clickbait Ptr.│ │ - Mainstream Media Verification     │
+└────────┬─────────┘ └──────────────────┬───────────────────┘
+         │                              │
+         └──────────────┬───────────────┘
+                        ▼
+       ┌─────────────────────────────────┐
+       │  Veracity Percentage Calculator │
+       │  (Weighted Multi-Factor Formula)│
+       └────────────────┬────────────────┘
+                        ▼
+       ┌─────────────────────────────────┐
+       │    Interactive Dashboard UI     │
+       │ - Animated Radial Veracity Gauge│
+       │ - Claim-by-Claim Breakdown Cards│
+       │ - Live Corroborating Wires List │
+       │ - Presentation Deck at /present │
+       └─────────────────────────────────┘
 ```
 
-### Frontend (`client/`)
-- **React 18** with **TypeScript** and **Vite**
-- **Tailwind CSS** with Dark Navy design system (`#070b14`), electric blue (`#3b82f6`) and violet accents
-- **Lucide React** icons
-- Local persistence for verification history and user API keys
+---
 
-### Backend (`server/`)
-- **Node.js** with **Express** (ES Modules)
-- **Mozilla Readability** & **JSDOM** for clean article body extraction
-- **Cheerio** for OpenGraph/Twitter Cards/JSON-LD metadata and semantic fallbacks
-- **Custom SSRF Validator** enforcing IP pre-resolution and blocking private/link-local ranges
-- **Google Fact Check Tools API** client
-- **NewsAPI** & **Real-time RSS** multi-channel search
-- **Google Gemini Flash** REST integration with structured JSON outputs
+## 🛠️ Technology Stack
+
+| Layer | Technologies Used |
+| :--- | :--- |
+| **Backend & REST API** | Python 3.14, Flask 3.1, Requests |
+| **Web Scraping & Ingestion** | BeautifulSoup4 (BS4), Urllib |
+| **Machine Learning & NLP** | Scikit-Learn 1.9, TF-IDF Vectorizer, PassiveAggressiveClassifier, CalibratedClassifierCV, Joblib |
+| **Stylometric Forensics** | Regex Pattern Forensics, Caps Ratio Engine, Sensationalism Index |
+| **Live Corroboration** | XML ElementTree, Google News RSS Service (zero API keys needed) |
+| **Frontend UI** | Modern HTML5, Tailwind CSS, Lucide Vector Icons, Glassmorphism CSS |
+| **Presentation Deck** | Built-in interactive slide engine (`/presentation`) with keyboard controls |
 
 ---
 
-## 🔒 Security & SSRF Defense
+## 📁 Project Directory Structure
 
-When users submit an article link (Tab B), TruthLens protects the server from Server-Side Request Forgery (SSRF) and DNS rebinding attacks:
-1. **Protocol Check**: Only `http:` and `https:` URLs are accepted.
-2. **Hostname Blocking**: Rejects `localhost`, `.local`, `.internal`, and `.lan`.
-3. **DNS Pre-Resolution**: Resolves hostname via `dns.lookup({ all: true })`.
-4. **IP Range Verification**: Rejects any resolved IP in:
-   - `127.0.0.0/8` (Loopback)
-   - `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (Private RFC 1918)
-   - `169.254.0.0/16` (Link-local & AWS metadata `169.254.169.254`)
-   - `::1`, `fc00::/7`, `fe80::/10` (IPv6 loopback/link-local/ULA)
-5. **Payload Limiting**: Max 5 MB content length and 8.5-second timeout.
+```
+fake-news-detector/
+├── app.py                  # Flask web application & REST endpoints
+├── scraper.py              # Resilient URL scraper & domain trust evaluator
+├── ml_engine.py            # TF-IDF vectorizer & calibrated ML classifier
+├── fact_checker.py         # Claim extraction, live corroboration & scoring
+├── training_data.py        # Curated dataset & viral debunk database
+├── fake_news_model.joblib  # Serialized calibrated machine learning model
+├── tfidf_vectorizer.joblib # Serialized TF-IDF n-gram vectorizer
+├── static/
+│   ├── app.js              # Frontend interactivity, gauge animations & API calls
+│   └── style.css           # Glassmorphism, animations & print media formatting
+├── templates/
+│   ├── index.html          # Main detection dashboard
+│   └── presentation.html   # 8-Slide Interactive Architecture & Project Deck
+└── README.md               # Detailed technical documentation
+```
 
 ---
 
-## 🚀 Quick Start & Installation
+## ⚡ How to Run Locally
 
-### Prerequisites
-- **Node.js**: v18+ (tested on Node v24.19.0)
-- **npm**: v9+
+### 1. Requirements:
+- Python 3.10+ (Tested on Python 3.14)
+- Pip
 
-### 1. Clone or Open the Repository
+### 2. Install Dependencies:
 ```bash
-cd C:\Users\xproo\Desktop\TruthLens-AI
+pip install flask scikit-learn pandas numpy requests beautifulsoup4 joblib
 ```
 
-### 2. Install Dependencies
+### 3. Launch Veritas Server:
 ```bash
-# Install root, backend, and frontend dependencies
-npm run install:all
+cd "C:\Users\anurag yadav\.gemini\antigravity\scratch\fake-news-detector"
+python app.py
 ```
 
-### 3. Configure API Keys (Optional but Recommended)
-Copy `.env.example` in `server/` to `server/.env`:
-```bash
-cd server
-cp .env.example .env
-```
-Open `server/.env` and insert your keys:
-```ini
-PORT=5000
-NODE_ENV=development
-
-# 1. Google Gemini Key (Free at https://aistudio.google.com/)
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# 2. Google Fact Check Key (Free; shares key with Google Cloud / Gemini)
-GOOGLE_FACTCHECK_API_KEY=your_google_factcheck_api_key_here
-
-# 3. NewsAPI Key (Free developer tier at https://newsapi.org/)
-# If empty, TruthLens automatically falls back to free live RSS feeds!
-NEWS_API_KEY=your_news_api_key_here
-```
-> *Note: You can also enter API keys directly into the web UI via the **Settings** modal, where keys are saved in local storage!*
-
-### 4. Run the Full Application
-```bash
-# From the project root:
-npm run dev
-```
-This boots both services concurrently:
-- **Client (Frontend)**: [http://localhost:5173](http://localhost:5173)
-- **Server (Backend API)**: [http://localhost:5000](http://localhost:5000)
-- **Server Health Check**: [http://localhost:5000/health](http://localhost:5000/health)
+### 4. Open in Browser:
+- **Main Fact-Checking Dashboard**: [http://127.0.0.1:5000](http://127.0.0.1:5000)
+- **Interactive Presentation Deck**: [http://127.0.0.1:5000/presentation](http://127.0.0.1:5000/presentation)
 
 ---
 
-## 🧪 Testing
+## 📡 REST API Reference
 
-TruthLens AI includes a full test suite verifying SSRF prevention, rating normalization, keyword extraction, and evidence consensus logic:
-
-```bash
-npm run test
+### 1. Analyze News (`POST /api/analyze`)
+**Request Body (JSON)**:
+```json
+{
+  "url": "https://timesofindia.indiatimes.com/india/...",
+  "text": "" 
+}
 ```
-**Test Results:**
+*Or provide raw text:*
+```json
+{
+  "url": "",
+  "text": "UNESCO declares Indian National Anthem as best national anthem in the world. Share immediately!"
+}
 ```
---- TruthLens AI Backend Test Suite ---
 
-1. SSRF Defense & URL Validation Tests:
-  ✓ Should block localhost
-  ✓ Should block 127.0.0.1 loopback
-  ✓ Should block AWS cloud metadata link-local IP 169.254.169.254
-  ✓ Should block private RFC1918 subnet 192.168.x.x
-  ✓ Should reject non-HTTP protocols (e.g. ftp://)
-  ✓ Should allow safe public URL (wikipedia.org)
-
-2. Fact-Checker Rating Normalizer Tests:
-  ✓ Normalizes "False" and "Pants on Fire" to Likely False
-  ✓ Normalizes "True" and "Correct" to Likely True
-  ✓ Normalizes "Mostly False" and "Misleading" to Misleading / Partly True
-  ✓ Normalizes unrated/unknown to Unverified
-
-3. Keyword Extraction Tests:
-  ✓ Strips stopwords and extracts primary entities
-
-4. Grounding & Evidence Engine Consensus Tests:
-  ✓ Forces verdict to Likely False when authoritative debunk exists
-  ✓ Assigns "Unverified" when no fact checks and no news coverage exist (anti-hallucination)
-
-5. Live News Feed Tests:
-  ✓ Live news service successfully retrieves real-time headlines
-
-Tests Completed: 14 passed, 0 failed
+**Response (JSON)**:
+```json
+{
+  "success": true,
+  "veracity_percentage": 18.0,
+  "verdict": "FABRICATED / FAKE NEWS",
+  "verdict_badge": "rose",
+  "verdict_description": "Critical indicators of disinformation, debunked hoaxes...",
+  "claim_counts": {
+    "total": 1,
+    "true_claims": 0,
+    "mixed_claims": 0,
+    "false_claims": 1
+  },
+  "claims": [
+    {
+      "claim": "UNESCO declares Indian National Anthem as best anthem in the world.",
+      "truth_score": 15.0,
+      "status": "Flagged as False by Media",
+      "badge_color": "rose",
+      "reason": "Fact-checking articles detected: 'FAKE ALERT: No, UNESCO did not declare...' by The Times of India.",
+      "corroborated": false
+    }
+  ],
+  "corroboration_sources": [
+    {
+      "source": "The Times of India",
+      "title": "FAKE ALERT: No, UNESCO did not declare...",
+      "link": "https://...",
+      "is_debunk": true
+    }
+  ],
+  "metrics": {
+    "ml_authenticity_score": 15.0,
+    "claims_truth_ratio": 15.0,
+    "publisher_trust_score": 50,
+    "sensationalism_index": 43.3,
+    "emotional_tone": "Alarmist / Clickbait"
+  }
+}
 ```
+
+### 2. Fetch Sample Cases (`GET /api/samples`)
+Returns 5 curated real-world presets (ISRO Chandrayaan-3, RBI Repo Rate, UNESCO Hoax, 2000 Note GPS chip, Lemon Cancer Cure).
 
 ---
 
-## 📋 Standardized Verdict Reference
-
-| Verdict | Meaning | Grounding Requirement |
-| :--- | :--- | :--- |
-| **Likely True** | Verified factual claims | Multiple credible primary wire services or accredited fact-checkers confirm the claim with documentation. |
-| **Likely False** | Fabricated or debunked | Authoritative debunk from Snopes, PolitiFact, Reuters, or primary records showing falsification. |
-| **Misleading / Partly True** | Exaggerated or out of context | References a real event or statistic, but quotes figures inaccurately, omits crucial caveats, or conflates separate events. |
-| **Conflicting Evidence** | Disputed reporting | Reputable wire agencies or official entities publish mutually exclusive accounts of the story. |
-| **Unverified** | Insufficient documentation | No matching fact checks or credible news reports exist. TruthLens refuses to hallucinate a verdict. |
-
----
-
-## 🎓 Academic Capstone Disclaimer
-
-**TruthLens AI** is developed as a senior college engineering project in full-stack web engineering, cybersecurity (SSRF mitigation), and applied AI for information verification. While TruthLens queries verified records from accredited IFCN signatories via the Google Fact Check Tools API, it is **not an official news agency, judicial body, or legal authority**.
+## 🎯 Verification Features Summary
+- **Live URL Extraction**: Analyzes live articles without manual copying.
+- **Explainability First**: Every claim shows *why* it received its score.
+- **Deception Forensics**: Flags clickbait buzzwords, alarmist phrasing, and lack of attribution.
+- **Export & Print Ready**: Click "Print" to generate a clean, official Verification Fact Sheet.
+- **Embedded Architecture Presentation**: 8 slides detailing math, design, and roadmap.

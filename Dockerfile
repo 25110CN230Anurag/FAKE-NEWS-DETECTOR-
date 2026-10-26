@@ -1,36 +1,31 @@
-# ==========================================
-# TruthLens AI — Production Multi-Stage Dockerfile
-# ==========================================
+# Multi-stage lightweight Python runtime
+FROM python:3.11-slim
 
-# Stage 1: Build Frontend Client
-FROM node:20-alpine AS client-builder
-WORKDIR /app/client
+# Prevent Python from writing .pyc and enable unbuffered logging
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-COPY client/package*.json ./
-RUN npm ci
-
-COPY client/ ./
-RUN npm run build
-
-# Stage 2: Production Server Runtime
-FROM node:20-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY . .
+
+# Pre-train / compile ML models so the container starts instantaneously
+RUN python ml_engine.py
+
+# Expose default port
 ENV PORT=5000
-
-# Install server dependencies
-COPY server/package*.json ./server/
-RUN cd server && npm ci --omit=dev
-
-# Copy server code
-COPY server/ ./server/
-
-# Copy compiled frontend from client-builder
-COPY --from=client-builder /app/client/dist ./client/dist
-
-# Expose port (Cloud providers inject $PORT dynamically)
 EXPOSE 5000
 
-# Start server
-CMD ["node", "server/src/index.js"]
+# Start production WSGI server
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "120", "app:app"]
