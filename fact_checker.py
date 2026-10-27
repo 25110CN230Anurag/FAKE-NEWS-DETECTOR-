@@ -9,7 +9,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 import requests
 from bs4 import BeautifulSoup
-from training_data import DEBUNKED_SIGNATURES, TRUSTED_DOMAINS
+from training_data import DEBUNKED_SIGNATURES, TRUSTED_DOMAINS, FACTUAL_KNOWLEDGE_BASE
 from ml_engine import ml_engine
 from scraper import scraper
 
@@ -66,6 +66,125 @@ class VeritasFactChecker:
                     "debunked_by": item["debunked_by"],
                     "fact": item["fact"]
                 }
+        return None
+
+    def check_factual_contradictions(self, claim: str) -> dict | None:
+        """
+        Deep semantic verification against verified constitutional, historical,
+        and geopolitical facts (e.g. offices, living/deceased status).
+        """
+        claim_lower = claim.lower()
+
+        # 1. Check Historical Figures
+        for fig_key, data in FACTUAL_KNOWLEDGE_BASE.get("historical_figures", {}).items():
+            matched_alias = any(re.search(rf"\b{re.escape(alias)}\b", claim_lower) for alias in data["aliases"])
+            if matched_alias:
+                # Check if claimed to hold a role they NEVER held (e.g. Kalam as Prime Minister)
+                for invalid_role in data.get("never_held", []):
+                    if re.search(rf"\b{re.escape(invalid_role)}\b", claim_lower):
+                        return {
+                            "claim": claim,
+                            "truth_score": 1.0,
+                            "status": "Factually Inaccurate / False",
+                            "badge_color": "rose",
+                            "reason": f"Direct factual falsehood: {data['fact']}",
+                            "corroborated": False,
+                            "evidence_type": "Historical & Biographical Records"
+                        }
+
+                # Check if deceased figure is claimed as 'current' or active
+                if data.get("status") == "deceased":
+                    present_indicators = ["current", "currently", "now", "present", "today", "yesterday", "appointed as", "sworn in as", "is", "is the"]
+                    if any(re.search(rf"\b{ind}\b", claim_lower) for ind in present_indicators):
+                        return {
+                            "claim": claim,
+                            "truth_score": 1.0,
+                            "status": "Deceased Person Anomaly / False",
+                            "badge_color": "rose",
+                            "reason": f"Impossible claim: {data['aliases'][0].title()} passed away on {data.get('death_date', 'earlier')} and cannot hold any current office.",
+                            "corroborated": False,
+                            "evidence_type": "Biographical Records"
+                        }
+
+        # 2. Check Constitutional Offices (Prime Minister / President)
+        officials = FACTUAL_KNOWLEDGE_BASE.get("current_officials", {})
+
+        # Prime Minister of India
+        pm_india = officials.get("prime_minister_of_india", {})
+        has_pm_mention = any(syn in claim_lower for syn in pm_india.get("synonyms", [])) or \
+                         (("prime minister" in claim_lower or re.search(r"\bpm\b", claim_lower)) and "india" in claim_lower)
+        if has_pm_mention:
+            current_pm = pm_india["current_holder"].lower()
+            if current_pm in claim_lower or "modi" in claim_lower:
+                return {
+                    "claim": claim,
+                    "truth_score": 98.0,
+                    "status": "Verified Constitutional Fact",
+                    "badge_color": "emerald",
+                    "reason": f"Verified constitutional fact: {pm_india['current_holder']} is the current serving Prime Minister of India.",
+                    "corroborated": True,
+                    "evidence_type": "Official Government Records"
+                }
+            else:
+                return {
+                    "claim": claim,
+                    "truth_score": 1.0,
+                    "status": "Factually Inaccurate / False",
+                    "badge_color": "rose",
+                    "reason": f"Factually false: The current Prime Minister of India is {pm_india['current_holder']} (in office since {pm_india['assumed_office']}), not the person claimed.",
+                    "corroborated": False,
+                    "evidence_type": "Official Government Records"
+                }
+
+        # President of India
+        pres_india = officials.get("president_of_india", {})
+        has_pres_mention = any(syn in claim_lower for syn in pres_india.get("synonyms", [])) or \
+                           ("president" in claim_lower and "india" in claim_lower)
+        if has_pres_mention:
+            current_pres = pres_india["current_holder"].lower()
+            if current_pres in claim_lower or "murmu" in claim_lower:
+                return {
+                    "claim": claim,
+                    "truth_score": 98.0,
+                    "status": "Verified Constitutional Fact",
+                    "badge_color": "emerald",
+                    "reason": f"Verified constitutional fact: {pres_india['current_holder']} is the current President of India.",
+                    "corroborated": True,
+                    "evidence_type": "Official Government Records"
+                }
+            else:
+                return {
+                    "claim": claim,
+                    "truth_score": 1.0,
+                    "status": "Factually Inaccurate / False",
+                    "badge_color": "rose",
+                    "reason": f"Factually false: The current President of India is {pres_india['current_holder']} (in office since {pres_india['assumed_office']}), not the person claimed.",
+                    "corroborated": False,
+                    "evidence_type": "Official Government Records"
+                }
+
+        # 3. Check for absurd universal demographic or biological claims
+        # e.g. "everyone in the world is gay", "all humans have three legs", "nobody in the world eats"
+        absurd_universal_patterns = [
+            (r"\b(everyone|everybody|all humans|all people|the entire world|the whole world)\b.*\b(is|are)\s+(gay|lesbian|homosexual|transgender|blind|deaf|dead|aliens|robots|fake|sleeping)\b",
+             "Demographically and factually false: Human populations are diverse. Peer-reviewed global demographic data (Gallup, Pew Research, Ipsos) show that the vast majority of the human population is heterosexual (~90%+), with ~5-10% identifying as LGBTQ+. Sweeping claims asserting universal 100% homogeneity are demonstrably false."),
+            (r"\b(everyone|everybody|all humans|all people)\b.*\b(have|has)\s+(three legs|four arms|two heads|no brain|green blood|wings)\b",
+             "Biologically impossible: Human anatomy does not possess these traits."),
+            (r"\b(nobody|no human|no one in the world)\b.*\b(drinks water|eats food|sleeps|breathes|dies)\b",
+             "Physiologically impossible: Biological life requires basic physiological sustenance.")
+        ]
+        for pattern, explanation in absurd_universal_patterns:
+            if re.search(pattern, claim_lower):
+                return {
+                    "claim": claim,
+                    "truth_score": 0.0,
+                    "status": "Demographically & Factually False",
+                    "badge_color": "rose",
+                    "reason": explanation,
+                    "corroborated": False,
+                    "evidence_type": "Demographic & Scientific Consensus"
+                }
+
         return None
 
     def search_live_corroboration(self, query: str) -> list[dict]:
@@ -126,16 +245,22 @@ class VeritasFactChecker:
     def evaluate_claim(self, claim: str, domain_trust: int) -> dict:
         """
         Analyzes a single claim:
+        - Factual & Constitutional Reality Verification
         - Debunk signature lookup
         - Stylometric/ML evaluation
         - Live search corroboration
         """
-        # 1. Direct Debunk Check
+        # 1. Deep Factual & Reality Verification Check
+        factual_check = self.check_factual_contradictions(claim)
+        if factual_check:
+            return factual_check
+
+        # 2. Direct Debunk Check
         debunk_hit = self.match_debunk_database(claim)
         if debunk_hit:
             return {
                 "claim": claim,
-                "truth_score": 5.0,
+                "truth_score": 1.0,
                 "status": "Fabricated / Debunked",
                 "badge_color": "rose",
                 "reason": f"Matches verified hoax flagged by {debunk_hit['debunked_by']}: {debunk_hit['fact']}",
@@ -143,51 +268,85 @@ class VeritasFactChecker:
                 "evidence_type": "Debunk Database"
             }
 
-        # 2. Linguistic & Stylistic check for this claim
+        # 3. Linguistic & Stylistic check for this claim
         ling = ml_engine.analyze_linguistics(claim)
         
-        # 3. Live Corroboration Check
+        # 4. Live Corroboration Check
         live_sources = self.search_live_corroboration(claim)
         
+        # Check if live sources contradict the assertion
+        search_titles_joined = " ".join(s["title"].lower() for s in live_sources)
+        refuting_indicators = [
+            "former president", "death anniversary", "birth anniversary",
+            "late dr", "remembers late", "pays homage to former", "former prime minister"
+        ]
+        claim_lower = claim.lower()
+        if any(ind in search_titles_joined for ind in refuting_indicators) and ("current" in claim_lower or "is prime minister" in claim_lower or "is president" in claim_lower):
+            return {
+                "claim": claim,
+                "truth_score": 1.0,
+                "status": "Contradicted by News Records",
+                "badge_color": "rose",
+                "reason": "News archives refute this assertion: Search results document this figure as a former or deceased official.",
+                "corroborated": False,
+                "evidence_type": "News Archive Contradiction"
+            }
+
+        # Filter live sources by content relevance
+        claim_words = set(w.lower() for w in re.findall(r'\b[a-zA-Z0-9]{3,}\b', claim_lower)
+                          if w.lower() not in {'this', 'that', 'with', 'from', 'have', 'were', 'what', 'when',
+                                               'will', 'says', 'said', 'they', 'their', 'about', 'everyone',
+                                               'everybody', 'world', 'word', 'some', 'news', 'people', 'all'})
+
+        # An article only counts as relevant if it shares at least 2 informative content words or all core words
+        relevant_sources = []
+        for s in live_sources:
+            title_words = set(w.lower() for w in re.findall(r'\b[a-zA-Z0-9]{3,}\b', s["title"].lower()))
+            overlap = claim_words.intersection(title_words)
+            if len(overlap) >= 2 or (len(claim_words) == 1 and overlap):
+                relevant_sources.append(s)
+
         # Check if live sources contain debunks
-        debunk_articles = [s for s in live_sources if s["is_debunk"]]
-        trusted_reports = [s for s in live_sources if s["is_trusted"] and not s["is_debunk"]]
+        debunk_articles = [s for s in relevant_sources if s["is_debunk"]]
+        trusted_reports = [s for s in relevant_sources if s["is_trusted"] and not s["is_debunk"]]
 
         if debunk_articles:
-            score = 15.0
+            score = 1.0
             status = "Flagged as False by Media"
             badge_color = "rose"
             reason = f"Fact-checking articles detected: '{debunk_articles[0]['title']}' by {debunk_articles[0]['source']}."
             corroborated = False
         elif trusted_reports:
-            score = min(96.0, 75.0 + (len(trusted_reports) * 7.0))
+            # Concrete proof from accredited mainstream media
+            score = min(96.0, 80.0 + (len(trusted_reports) * 5.0))
             status = "Verified by Mainstream Media"
             badge_color = "emerald"
             reason = f"Corroborated by reports from {trusted_reports[0]['source']} ('{trusted_reports[0]['title']}')."
             corroborated = True
-        elif live_sources:
-            score = 65.0
-            status = "Partially Corroborated"
+        elif relevant_sources:
+            score = 30.0
+            status = "Unconfirmed Media Mention"
             badge_color = "amber"
-            reason = f"Related news coverage found on {live_sources[0]['source']}, but official verification pending."
-            corroborated = True
+            reason = f"Unconfirmed reports found on {relevant_sources[0]['source']}, but official journalistic verification is pending."
+            corroborated = False
         else:
-            # No live search results: rely on linguistic tone and domain trust
+            # Zero corroborating reports found anywhere
             if ling["sensationalism_score"] > 40:
-                score = max(10.0, 45.0 - ling["sensationalism_score"])
-                status = "Unsubstantiated / Sensational"
+                score = max(1.0, 15.0 - (ling["sensationalism_score"] * 0.2))
+                status = "Unsubstantiated / Sensational Clickbait"
                 badge_color = "rose"
                 reason = "No corroborating reports found; text contains high sensationalism and clickbait markers."
             elif domain_trust >= 85:
-                score = 82.0
+                score = 80.0
                 status = "Credible Publisher Assertion"
                 badge_color = "emerald"
                 reason = "Reported by high-authority news publisher with standard journalistic attribution."
+                corroborated = True
             else:
-                score = 50.0
-                status = "Unverified Claim"
-                badge_color = "slate"
-                reason = "No independent corroboration found in news archives; requires manual verification."
+                score = 10.0
+                status = "Unsubstantiated / Unverified Claim"
+                badge_color = "rose"
+                reason = "Zero corroborating reports found in national or global news archives. Strictly unverified."
             corroborated = False
 
         return {
@@ -281,50 +440,46 @@ class VeritasFactChecker:
         else:
             corroboration_score = 50.0
 
-        # Step 5: Composite Veracity Percentage Calculation
-        # Weights:
-        # - Claims Truth Ratio: 35%
-        # - ML Stylometric Authenticity: 30%
-        # - Domain / Publisher Authority: 20%
-        # - Live Corroboration: 15%
-        raw_composite = (
-            (claims_truth_avg * 0.35) +
-            (ml_truth * 0.30) +
-            (domain_trust * 0.20) +
-            (corroboration_score * 0.15)
-        )
+        # Step 5: Strict 50% Truth Boundary Law
+        # A claim is ONLY > 50% if there is verified proof (claims_truth_avg >= 70% and no critical falsehoods)
+        # Any unverified, contradictory, or debunked claim is STRICTLY < 50%
+        min_claim_score = min((c["truth_score"] for c in evaluated_claims), default=10.0)
+        has_falsehood = any(c["truth_score"] <= 15.0 for c in evaluated_claims)
+        is_corroborated = any(c.get("corroborated") for c in evaluated_claims)
 
-        # Apply critical penalties: If debunked or high sensationalism
-        if any(c["truth_score"] <= 15.0 for c in evaluated_claims):
-            raw_composite = min(raw_composite, 18.0)
-        elif linguistics["sensationalism_score"] >= 45:
-            raw_composite = min(raw_composite, 30.0)
-        elif debunk_mentions:
-            raw_composite = min(raw_composite, 22.0)
+        if min_claim_score <= 5.0 or has_falsehood or not is_corroborated:
+            # STRICTLY LESS THAN 50%
+            if min_claim_score <= 5.0:
+                final_truth_percentage = min_claim_score
+            elif debunk_mentions:
+                final_truth_percentage = 5.0
+            else:
+                # Unverified / unsubstantiated claim with zero proof
+                # Range: 5.0% to 25.0% (CAN NEVER REACH 50%)
+                final_truth_percentage = min(25.0, max(2.0, round(claims_truth_avg * 0.8, 1)))
 
-        final_truth_percentage = max(1.0, min(99.0, round(raw_composite, 1)))
+            if final_truth_percentage <= 10.0:
+                verdict = "FABRICATED / FAKE NEWS"
+                verdict_badge = "rose"
+                verdict_desc = "Critical indicators of disinformation, factual contradictions, or debunked claims."
+            else:
+                verdict = "UNVERIFIED / QUESTIONABLE"
+                verdict_badge = "orange"
+                verdict_desc = "Lacks corroborating evidence from trusted news media or public records. High probability of fabrication."
 
-        # Determine Verdict & Tier
-        if final_truth_percentage >= 82.0:
-            verdict = "VERIFIED AUTHENTIC"
-            verdict_badge = "emerald"
-            verdict_desc = "High degree of journalistic integrity, verifiable claims, and reputable reporting style."
-        elif final_truth_percentage >= 65.0:
-            verdict = "MOSTLY ACCURATE"
-            verdict_badge = "teal"
-            verdict_desc = "Content is largely substantiated by credible facts, with minor unverified details."
-        elif final_truth_percentage >= 45.0:
-            verdict = "MIXED / UNCONFIRMED"
-            verdict_badge = "amber"
-            verdict_desc = "Contains a mixture of accurate statements and unsubstantiated claims. Cross-verification recommended."
-        elif final_truth_percentage >= 25.0:
-            verdict = "QUESTIONABLE / MISLEADING"
-            verdict_badge = "orange"
-            verdict_desc = "Lacks credible evidence, contains emotional hyperbole, or selectively misrepresents facts."
         else:
-            verdict = "FABRICATED / FAKE NEWS"
-            verdict_badge = "rose"
-            verdict_desc = "Critical indicators of disinformation, debunked hoaxes, or fraudulent health/political claims."
+            # STRICTLY GREATER THAN 50% (75% to 98%)
+            verified_base = (claims_truth_avg * 0.65) + (domain_trust * 0.20) + (ml_truth * 0.15)
+            final_truth_percentage = min(98.0, max(75.0, round(verified_base, 1)))
+
+            if final_truth_percentage >= 85.0:
+                verdict = "VERIFIED AUTHENTIC"
+                verdict_badge = "emerald"
+                verdict_desc = "Substantiated by accredited journalistic reporting and verified public records."
+            else:
+                verdict = "MOSTLY ACCURATE"
+                verdict_badge = "teal"
+                verdict_desc = "Largely substantiated by credible sources, with standard journalistic attribution."
 
         # Compute count of true vs false claims
         true_claims_count = sum(1 for c in evaluated_claims if c["truth_score"] >= 70.0)

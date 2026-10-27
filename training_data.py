@@ -370,3 +370,87 @@ DEBUNKED_SIGNATURES = [
         "fact": "The Reserve Bank of India has repeatedly clarified that 500 rupee banknotes remain legal tender and will not be banned."
     }
 ]
+
+# Verified Factual Knowledge Graph for Real-Time Reality Checks
+FACTUAL_KNOWLEDGE_BASE = {
+    "current_officials": {
+        "prime_minister_of_india": {
+            "title": "Prime Minister of India",
+            "current_holder": "Narendra Modi",
+            "assumed_office": "May 2014",
+            "synonyms": ["prime minister of india", "pm of india", "indian prime minister", "pm modi"],
+            "former_holders": [
+                "jawaharlal nehru", "lal bahadur shastri", "indira gandhi", "morarji desai",
+                "charan singh", "rajiv gandhi", "v. p. singh", "chandra shekhar",
+                "p. v. narasimha rao", "atal bihari vajpayee", "h. d. deve gowda",
+                "i. k. gujral", "manmohan singh"
+            ]
+        },
+        "president_of_india": {
+            "title": "President of India",
+            "current_holder": "Droupadi Murmu",
+            "assumed_office": "July 2022",
+            "synonyms": ["president of india", "rashtrapati", "indian president"],
+            "former_holders": [
+                "rajendra prasad", "sarvepalli radhakrishnan", "zakir husain", "v. v. giri",
+                "fakhruddin ali ahmed", "neelam sanjiva reddy", "giani zail singh",
+                "r. venkataraman", "shankar dayal sharma", "k. r. narayanan",
+                "a. p. j. abdul kalam", "apj abdul kalam", "abdul kalam",
+                "pratibha patil", "pranab mukherjee", "ram nath kovind"
+            ]
+        },
+        "president_of_usa": {
+            "title": "President of the United States",
+            "current_holder": "Joe Biden",
+            "synonyms": ["president of the united states", "us president", "potus"],
+            "former_holders": ["george washington", "abraham lincoln", "barack obama", "donald trump", "george w. bush", "bill clinton"]
+        },
+        "prime_minister_of_uk": {
+            "title": "Prime Minister of the United Kingdom",
+            "current_holder": "Keir Starmer",
+            "synonyms": ["uk prime minister", "prime minister of uk", "british prime minister"],
+            "former_holders": ["rishi sunak", "liz truss", "boris johnson", "theresa may", "david cameron", "tony blair"]
+        }
+    },
+    "historical_figures": {
+        "apj abdul kalam": {
+            "aliases": ["apj abdul kalam", "abdul kalam", "a. p. j. abdul kalam", "dr kalam", "dr. kalam", "a.p.j. abdul kalam", "kalam", "a p j abdul kalam"],
+            "status": "deceased",
+            "death_date": "July 27, 2015",
+            "actual_role": "11th President of India (2002–2007)",
+            "never_held": ["prime minister", "pm", "chief minister", "home minister", "finance minister"],
+            "fact": "Dr. A.P.J. Abdul Kalam was the 11th President of India (2002–2007) and passed away on July 27, 2015. He was never the Prime Minister of India. The current Prime Minister is Narendra Modi."
+        },
+        "mahatma gandhi": {
+            "aliases": ["mahatma gandhi", "gandhiji", "bapu", "m. k. gandhi", "mohandas gandhi"],
+            "status": "deceased",
+            "death_date": "January 30, 1948",
+            "actual_role": "Leader of Indian Independence Movement",
+            "never_held": ["prime minister", "president", "minister"],
+            "fact": "Mahatma Gandhi was the leader of the Indian independence movement and passed away in 1948. He never held any political or governmental office."
+        },
+        "jawaharlal nehru": {
+            "aliases": ["jawaharlal nehru", "pandit nehru", "nehru"],
+            "status": "deceased",
+            "death_date": "May 27, 1964",
+            "actual_role": "1st Prime Minister of India (1947–1964)",
+            "never_held": ["current prime minister", "current president", "president of india"],
+            "fact": "Jawaharlal Nehru was India's 1st Prime Minister from 1947 until his demise in 1964."
+        },
+        "atal bihari vajpayee": {
+            "aliases": ["atal bihari vajpayee", "vajpayee"],
+            "status": "deceased",
+            "death_date": "August 16, 2018",
+            "actual_role": "Former Prime Minister of India",
+            "never_held": ["current prime minister", "current president"],
+            "fact": "Atal Bihari Vajpayee was a former Prime Minister of India who passed away in 2018."
+        },
+        "manmohan singh": {
+            "aliases": ["manmohan singh", "dr manmohan singh"],
+            "status": "living",
+            "actual_role": "Former Prime Minister of India (2004–2014)",
+            "never_held": ["current prime minister", "current president"],
+            "fact": "Dr. Manmohan Singh served as Prime Minister of India from 2004 to 2014. The current Prime Minister of India is Narendra Modi."
+        }
+    }
+}

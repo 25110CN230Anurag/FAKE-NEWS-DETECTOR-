@@ -98,7 +98,8 @@ class VeritasScraper:
     def scrape_url(self, url: str) -> dict:
         """
         Fetches and cleans article text from any target URL.
-        Handles TOI, NDTV, and standard news sites with fallback extractors.
+        Features multi-tier fallback: direct Chrome emulation + AI Reader Proxy
+        to reliably scrape Akamai/Cloudflare protected news sites like NDTV.
         """
         if not url.startswith("http://") and not url.startswith("https://"):
             url = "https://" + url
@@ -106,14 +107,64 @@ class VeritasScraper:
         domain = self.extract_domain(url)
         domain_info = self.evaluate_domain_trust(domain)
 
+        html = ""
+        fetch_success = False
+
+        # Attempt 1: Direct fetch with browser headers (Fast for TOI, Hindu, BBC, Express)
         try:
             response = requests.get(url, headers=DEFAULT_HEADERS, timeout=self.timeout)
-            response.raise_for_status()
-            html = response.text
-        except requests.exceptions.RequestException as e:
+            if response.status_code == 200 and len(response.text) > 500:
+                html = response.text
+                fetch_success = True
+        except Exception:
+            pass
+
+        # Attempt 2: Resilient Reader Fallback for Akamai/Cloudflare 403 sites (like NDTV)
+        if not fetch_success or "Access Denied" in html:
+            try:
+                proxy_url = f"https://r.jina.ai/{url}"
+                p_resp = requests.get(proxy_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=12)
+                if p_resp.status_code == 200 and len(p_resp.text) > 200:
+                    lines = [l.strip() for l in p_resp.text.split("\n") if l.strip()]
+                    title = ""
+                    for line in lines[:5]:
+                        if line.startswith("Title:"):
+                            title = line.replace("Title:", "").strip()
+                            break
+                    if not title and lines:
+                        title = lines[0]
+
+                    title = re.sub(r"\s*[-|–]\s*(The Times of India|NDTV|The Hindu|BBC News|Hindustan Times).*$", "", title, flags=re.IGNORECASE)
+
+                    # Extract readable content paragraphs
+                    clean_lines = []
+                    for l in lines[2:]:
+                        if l.startswith("![") or l.startswith("Advertisement") or l.startswith("Image ") or "pfrom=" in l:
+                            continue
+                        cleaned = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', l)
+                        if len(cleaned) > 30:
+                            clean_lines.append(cleaned)
+
+                    content = " ".join(clean_lines[:20])
+                    if content:
+                        return {
+                            "success": True,
+                            "url": url,
+                            "domain": domain,
+                            "domain_info": domain_info,
+                            "title": title or f"News Article from {domain_info['publisher_name']}",
+                            "author": "Editorial Desk",
+                            "publish_date": "Recent",
+                            "content": content,
+                            "word_count": len(content.split())
+                        }
+            except Exception:
+                pass
+
+        if not html:
             return {
                 "success": False,
-                "error": f"Failed to fetch webpage ({str(e)})",
+                "error": "Could not access webpage (site blocked automated access). Please copy and paste the article text into the 'Paste Raw Text' tab!",
                 "domain_info": domain_info,
                 "url": url
             }
@@ -150,7 +201,6 @@ class VeritasScraper:
             publish_date = date_meta["content"].split("T")[0]
 
         # 4. Article Body Content Extraction
-        # Look for news-specific containers
         content = ""
         article_tag = (
             soup.find("article") or
@@ -163,19 +213,16 @@ class VeritasScraper:
             paragraphs = [p.get_text().strip() for p in article_tag.find_all("p") if len(p.get_text().strip()) > 30]
 
         if not paragraphs:
-            # Fallback to general paragraph collection
             paragraphs = [p.get_text().strip() for p in soup.find_all("p") if len(p.get_text().strip()) > 40]
 
-        # Filter out common junk
         cleaned_paragraphs = []
         for p in paragraphs:
             if re.search(r"subscribe|advertisement|copyright|follow us on|read more|all rights reserved", p, re.I):
                 continue
             cleaned_paragraphs.append(p)
 
-        content = " ".join(cleaned_paragraphs[:15])  # Cap at top 15 rich paragraphs
+        content = " ".join(cleaned_paragraphs[:15])
 
-        # If still empty, use meta description
         if not content:
             meta_desc = soup.find("meta", property="og:description") or soup.find("meta", attrs={"name": "description"})
             if meta_desc and meta_desc.get("content"):
